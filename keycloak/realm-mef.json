@@ -1,0 +1,67 @@
+{
+  "realm": "mef",
+  "displayName": "Ministère de l'Économie et des Finances",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 300,
+  "refreshTokenMaxReuse": 0,
+
+  "roles": {
+    "realm": [
+      { "name": "mef-admin",  "description": "Administrateur — accès complet dont le tableau de bord" },
+      { "name": "mef-agent",  "description": "Agent — soumission de fiches uniquement" }
+    ]
+  },
+
+  "clients": [
+    {
+      "clientId": "mef-form",
+      "name": "MEF Form (Frontend)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": [
+        "http://localhost/*",
+        "http://localhost:5173/*"
+      ],
+      "webOrigins": [
+        "http://localhost",
+        "http://localhost:5173"
+      ],
+      "defaultClientScopes": ["web-origins", "profile", "roles", "email"]
+    },
+    {
+      "clientId": "mef-backend",
+      "name": "MEF Backend (API)",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": true,
+      "standardFlowEnabled": false
+    }
+  ],
+
+  "users": [
+    {
+      "username": "admin.mef",
+      "email": "admin@mef.gouv.ht",
+      "firstName": "Admin",
+      "lastName": "MEF",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "Admin@1234", "temporary": true }],
+      "realmRoles": ["mef-admin", "mef-agent"]
+    },
+    {
+      "username": "agent.mef",
+      "email": "agent@mef.gouv.ht",
+      "firstName": "Agent",
+      "lastName": "MEF",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "Agent@1234", "temporary": true }],
+      "realmRoles": ["mef-agent"]
+    }
+  ]
+}

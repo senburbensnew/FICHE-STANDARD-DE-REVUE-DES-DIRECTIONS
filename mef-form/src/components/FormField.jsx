@@ -1,0 +1,158 @@
+import DatePicker, { registerLocale } from 'react-datepicker'
+import { fr } from 'date-fns/locale'
+import { parseISO, format, isValid } from 'date-fns'
+
+registerLocale('fr', fr)
+
+// ISO string → Date object (safe)
+function toDate(iso) {
+  if (!iso) return null
+  const d = parseISO(iso)
+  return isValid(d) ? d : null
+}
+
+// Date object → ISO string
+function toISO(date) {
+  return date ? format(date, 'yyyy-MM-dd') : ''
+}
+
+export function SectionTitle({ number, title }) {
+  return (
+    <div className="mb-6">
+      <h2 className="text-base font-bold text-blue-900 uppercase tracking-wide border-b-2 border-blue-800 pb-2">
+        {number}. {title}
+      </h2>
+    </div>
+  )
+}
+
+export function DateField({ label, name, value, onChange, showErrors = false, required = true }) {
+  const isEmpty = required && showErrors && !value
+
+  const triggerCls = [
+    'w-full border rounded-lg px-3 py-2 text-sm text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:border-transparent',
+    isEmpty
+      ? 'border-red-400 bg-red-50 focus:ring-red-400'
+      : 'border-gray-300 bg-white text-gray-800 focus:ring-blue-500',
+  ].join(' ')
+
+  return (
+    <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
+      <div className="md:col-span-2 pt-2 leading-snug">
+        <label className="text-sm font-semibold text-gray-700">
+          {label}
+          {required && <span className="ml-0.5 text-red-500">*</span>}
+        </label>
+      </div>
+      <div className="md:col-span-3">
+        <DatePicker
+          locale="fr"
+          dateFormat="dd/MM/yyyy"
+          selected={toDate(value)}
+          onChange={date => onChange({ [name]: toISO(date) })}
+          placeholderText="jj/mm/aaaa"
+          className={triggerCls}
+          wrapperClassName="w-full"
+          showMonthDropdown
+          showYearDropdown
+          dropdownMode="select"
+          yearDropdownItemNumber={10}
+        />
+        {isEmpty && <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>}
+      </div>
+    </div>
+  )
+}
+
+export function Field({
+  label, name, value, onChange,
+  type = 'textarea', placeholder = '', rows = 3,
+  readOnly = false, showErrors = false, required = true,
+  savedFields,
+}) {
+  const prefilled = savedFields?.has(name) ?? false
+  const isEmpty = required && showErrors && (!value || String(value).trim() === '')
+
+  const base = 'w-full border rounded-lg px-3 py-2 text-sm transition'
+  const normal   = 'border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+  const errorCls = 'border-red-400 bg-red-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent'
+  const preCls   = 'border-teal-300 bg-teal-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent'
+  const roCls    = 'border-blue-200 bg-blue-50 text-blue-900 font-semibold cursor-default'
+
+  const inputCls = `${base} ${readOnly ? roCls : isEmpty ? errorCls : prefilled ? preCls : normal}`
+
+  return (
+    <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
+      <div className="md:col-span-2 pt-2 leading-snug">
+        <label className="text-sm font-semibold text-gray-700">
+          {label}
+          {readOnly && <span className="ml-1.5 text-xs font-normal text-blue-500 italic">(automatique)</span>}
+          {required && !readOnly && <span className="ml-0.5 text-red-500">*</span>}
+        </label>
+        {prefilled && !readOnly && (
+          <span className="mt-1 inline-flex items-center gap-1 bg-teal-100 text-teal-700 text-xs font-semibold px-1.5 py-0.5 rounded">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
+              <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
+            </svg>
+            pré-rempli
+          </span>
+        )}
+      </div>
+
+      <div className="md:col-span-3">
+        {type === 'textarea' ? (
+          <textarea
+            name={name}
+            value={value}
+            onChange={e => onChange({ [name]: e.target.value })}
+            rows={rows}
+            placeholder={placeholder}
+            readOnly={readOnly}
+            className={`${inputCls} resize-y`}
+          />
+        ) : type === 'yesno' ? (
+          <div>
+            <div className={`flex gap-4 pt-2 rounded-lg ${isEmpty ? 'bg-red-50 px-3 py-1 border border-red-400' : ''}`}>
+              {['Oui', 'Non'].map(opt => (
+                <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name={name}
+                    value={opt}
+                    checked={value === opt}
+                    onChange={() => onChange({ [name]: opt })}
+                    className="accent-blue-800 w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-700">{opt}</span>
+                </label>
+              ))}
+            </div>
+            {isEmpty && <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>}
+          </div>
+        ) : (
+          <input
+            type={type}
+            name={name}
+            value={value}
+            onChange={e => onChange({ [name]: e.target.value })}
+            placeholder={placeholder}
+            readOnly={readOnly}
+            className={inputCls}
+          />
+        )}
+        {isEmpty && type !== 'yesno' && (
+          <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function FieldGroup({ children }) {
+  return (
+    <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 px-4">
+      {children}
+    </div>
+  )
+}

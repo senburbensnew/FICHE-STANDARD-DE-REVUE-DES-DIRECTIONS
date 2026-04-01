@@ -1,0 +1,16 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# PDF files
+*.pdf
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
