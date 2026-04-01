@@ -4,6 +4,7 @@ const mongoose = require('mongoose')
 const cors = require('cors')
 const fichesRouter = require('./routes/fiches')
 const analyticsRouter = require('./routes/analytics')
+const directionsRouter = require('./routes/directions')
 const { requireAuth } = require('./middleware/auth')
 
 const app = express()
@@ -16,6 +17,7 @@ app.use(express.json())
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }))
 
 // Protected routes
+app.use('/api/directions', directionsRouter)
 app.use('/api/fiches', fichesRouter)              // public — no auth required for now
 app.use('/api/analytics', requireAuth, analyticsRouter) // protected — requires Keycloak token
 

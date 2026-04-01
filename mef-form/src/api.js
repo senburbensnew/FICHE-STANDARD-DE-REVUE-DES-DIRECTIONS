@@ -26,6 +26,20 @@ async function get(path, token) {
   return res.json()
 }
 
+export const fetchDirections = () => get('/directions')
+
+export async function addDirection(data, token) {
+  const res = await fetch(`${BASE}/directions`, {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) {
+    const err = await res.json()
+    throw new Error(err.message || 'Erreur lors de l\'ajout')
+  }
+  return res.json()
+}
 export const fetchOverview       = (token) => get('/analytics/overview', token)
 export const fetchParDirection   = (token) => get('/analytics/par-direction', token)
 export const fetchParMois        = (token) => get('/analytics/par-mois', token)
