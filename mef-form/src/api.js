@@ -45,3 +45,6 @@ export const fetchParDirection   = (token) => get('/analytics/par-direction', to
 export const fetchParMois        = (token) => get('/analytics/par-mois', token)
 export const fetchLocaux         = (token) => get('/analytics/locaux', token)
 export const fetchRapports       = (token) => get('/analytics/rapports', token)
+export const fetchParPeriode     = (token) => get('/analytics/par-periode', token)
+export const fetchEffectifs      = (token) => get('/analytics/effectifs', token)
+export const fetchEquipements    = (token) => get('/analytics/equipements', token)
