@@ -1,109 +1,113 @@
-const mongoose = require('mongoose')
+const { DataTypes } = require('sequelize')
+const sequelize = require('../db')
 
-const ficheSchema = new mongoose.Schema({
+const T = DataTypes.TEXT   // shorthand — all content fields are TEXT
+
+const Fiche = sequelize.define('Fiche', {
   // I. Identification
-  intituleDirection:     { type: String, required: true },
-  responsable:           { type: String, required: true },
-  fonction:              { type: String, required: true },
-  dateReunion:           { type: String, required: true },
-  periodeCoverte:        { type: String, required: true },
-  localisation:          { type: String, required: true },
-  coordonneesTel:        { type: String, required: true },
-  adresseEmail:          { type: String, required: true },
+  intituleDirection:     { type: T, allowNull: false },
+  responsable:           { type: T, allowNull: false },
+  fonction:              { type: T, allowNull: false },
+  dateReunion:           { type: T, allowNull: false },
+  periodeCoverte:        { type: T, allowNull: false },
+  localisation:          { type: T, allowNull: false },
+  coordonneesTel:        { type: T, allowNull: false },
+  adresseEmail:          { type: T, allowNull: false },
 
   // II. Mission
-  missionPrincipale:         { type: String, required: true },
-  principalesAttributions:   { type: String, required: true },
-  principauxServices:        { type: String, required: true },
+  missionPrincipale:         { type: T, allowNull: false },
+  principalesAttributions:   { type: T, allowNull: false },
+  principauxServices:        { type: T, allowNull: false },
 
   // III. Ressources humaines
-  effectifTheorique:       { type: String, required: true },
-  effectifPoste:           { type: String, required: true },
-  effectifDisponible:      { type: String, required: true },
-  repartitionPersonnel:    { type: String, required: true },
-  postesVacants:           { type: String, required: true },
-  besoinsPrioPersonnel:    { type: String, required: true },
-  besoinsFormation:        { type: String, required: true },
-  difficultesRH:           { type: String, required: true },
+  effectifTheorique:       { type: T, allowNull: false },
+  effectifPoste:           { type: T, allowNull: false },
+  effectifDisponible:      { type: T, allowNull: false },
+  repartitionPersonnel:    { type: T, allowNull: false },
+  postesVacants:           { type: T, allowNull: false },
+  besoinsPrioPersonnel:    { type: T, allowNull: false },
+  besoinsFormation:        { type: T, allowNull: false },
+  difficultesRH:           { type: T, allowNull: false },
 
   // IV. Fonctionnement
-  activitesRealisees:      { type: String, required: true },
-  activitesEnCours:        { type: String, required: true },
-  activitesNonRealisees:   { type: String, required: true },
-  resultatsObtenus:        { type: String, required: true },
-  difficultesExecution:    { type: String, required: true },
+  activitesRealisees:      { type: T, allowNull: false },
+  activitesEnCours:        { type: T, allowNull: false },
+  activitesNonRealisees:   { type: T, allowNull: false },
+  resultatsObtenus:        { type: T, allowNull: false },
+  difficultesExecution:    { type: T, allowNull: false },
 
   // V. Locaux
-  locauxAdaptes:           { type: String, required: true },
-  etatBatiments:           { type: String, required: true },
-  niveauExiguite:          { type: String, required: true },
-  etatProprete:            { type: String, required: true },
-  signaletique:            { type: String, required: true },
-  conditionsAccueil:       { type: String, required: true },
-  travauxPrioritaires:     { type: String, required: true },
+  locauxAdaptes:           { type: T, allowNull: false },
+  etatBatiments:           { type: T, allowNull: false },
+  niveauExiguite:          { type: T, allowNull: false },
+  etatProprete:            { type: T, allowNull: false },
+  signaletique:            { type: T, allowNull: false },
+  conditionsAccueil:       { type: T, allowNull: false },
+  travauxPrioritaires:     { type: T, allowNull: false },
 
   // VI. Équipements
-  mobilierBureau:          { type: String, required: true },
-  materielInformatique:    { type: String, required: true },
-  etatOrdinateurs:         { type: String, required: true },
-  electricite:             { type: String, required: true },
-  internet:                { type: String, required: true },
-  vehicules:               { type: String, required: true },
-  autresEquipements:       { type: String, required: true },
-  insuffisancesMaterielles:{ type: String, required: true },
+  mobilierBureau:          { type: T, allowNull: false },
+  materielInformatique:    { type: T, allowNull: false },
+  etatOrdinateurs:         { type: T, allowNull: false },
+  electricite:             { type: T, allowNull: false },
+  internet:                { type: T, allowNull: false },
+  vehicules:               { type: T, allowNull: false },
+  autresEquipements:       { type: T, allowNull: false },
+  insuffisancesMaterielles:{ type: T, allowNull: false },
 
   // VII. Communication
-  circulationInfo:              { type: String, required: true },
-  relationsAutresStructures:    { type: String, required: true },
-  outilsNumeriques:             { type: String, required: true },
-  proceduresDematerialisees:    { type: String, required: true },
-  proceduresManuelles:          { type: String, required: true },
-  besoinsDig:                   { type: String, required: true },
-  difficultesInternet:          { type: String, required: true },
+  circulationInfo:              { type: T, allowNull: false },
+  relationsAutresStructures:    { type: T, allowNull: false },
+  outilsNumeriques:             { type: T, allowNull: false },
+  proceduresDematerialisees:    { type: T, allowNull: false },
+  proceduresManuelles:          { type: T, allowNull: false },
+  besoinsDig:                   { type: T, allowNull: false },
+  difficultesInternet:          { type: T, allowNull: false },
 
   // VIII. Rapports
-  rapportsPeriodiques:        { type: String, required: true },
-  frequenceProduction:        { type: String, required: true },
-  derniersRapports:           { type: String, required: true },
-  tableauxBord:               { type: String, required: true },
-  statistiquesDisponibles:    { type: String, required: true },
-  principauxLivrables:        { type: String, required: true },
-  retardsRapports:            { type: String, required: true },
-  causesRapports:             { type: String, required: true },
+  rapportsPeriodiques:        { type: T, allowNull: false },
+  frequenceProduction:        { type: T, allowNull: false },
+  derniersRapports:           { type: T, allowNull: false },
+  tableauxBord:               { type: T, allowNull: false },
+  statistiquesDisponibles:    { type: T, allowNull: false },
+  principauxLivrables:        { type: T, allowNull: false },
+  retardsRapports:            { type: T, allowNull: false },
+  causesRapports:             { type: T, allowNull: false },
 
   // IX. Contraintes
-  contrainte1: { type: String, required: true },
-  contrainte2: { type: String, required: true },
-  contrainte3: { type: String, required: true },
+  contrainte1: { type: T, allowNull: false },
+  contrainte2: { type: T, allowNull: false },
+  contrainte3: { type: T, allowNull: false },
 
   // X. Besoins
-  besoin1: { type: String, required: true },
-  besoin2: { type: String, required: true },
-  besoin3: { type: String, required: true },
-  besoin4: { type: String, required: true },
-  besoin5: { type: String, required: true },
+  besoin1: { type: T, allowNull: false },
+  besoin2: { type: T, allowNull: false },
+  besoin3: { type: T, allowNull: false },
+  besoin4: { type: T, allowNull: false },
+  besoin5: { type: T, allowNull: false },
 
   // XI. Mesures correctives
-  mesuresStructure: { type: String, required: true },
-  mesuresDG:        { type: String, required: true },
-  mesuresMinistre:  { type: String, required: true },
+  mesuresStructure: { type: T, allowNull: false },
+  mesuresDG:        { type: T, allowNull: false },
+  mesuresMinistre:  { type: T, allowNull: false },
 
   // XII. Appui
-  decisionsOuhaitees:  { type: String, required: true },
-  appuisAdmin:         { type: String, required: true },
-  appuisLogistiques:   { type: String, required: true },
-  appuisRH:            { type: String, required: true },
-  appuisNumerique:     { type: String, required: true },
+  decisionsOuhaitees:  { type: T, allowNull: false },
+  appuisAdmin:         { type: T, allowNull: false },
+  appuisLogistiques:   { type: T, allowNull: false },
+  appuisRH:            { type: T, allowNull: false },
+  appuisNumerique:     { type: T, allowNull: false },
 
   // XIII. Observations
-  observationsComplementaires: { type: String, required: true },
+  observationsComplementaires: { type: T, allowNull: false },
 
   // XIV. Signature
-  nomResponsable:    { type: String, required: true },
-  fonctionSignature: { type: String, required: true },
-  date:              { type: String, required: true },
+  nomResponsable:    { type: T, allowNull: false },
+  fonctionSignature: { type: T, allowNull: false },
+  date:              { type: T, allowNull: false },
 }, {
+  tableName:  'fiches',
   timestamps: true,
 })
 
-module.exports = mongoose.model('Fiche', ficheSchema)
+module.exports = Fiche

@@ -27,20 +27,22 @@ export function SectionTitle({ number, title }) {
   )
 }
 
-export function DateField({ label, name, value, onChange, showErrors = false, required = true }) {
-  const isEmpty = required && showErrors && !value
+export function DateField({ label, name, value, onChange, showErrors = false, required = true, disabled = false }) {
+  const isEmpty = required && showErrors && !value && !disabled
 
   const triggerCls = [
-    'w-full border rounded-lg px-3 py-2 text-sm text-left cursor-pointer transition focus:outline-none focus:ring-2 focus:border-transparent',
-    isEmpty
-      ? 'border-red-400 bg-red-50 focus:ring-red-400'
-      : 'border-gray-300 bg-white text-gray-800 focus:ring-blue-500',
+    'w-full border rounded-lg px-3 py-2 text-sm text-left transition focus:outline-none focus:ring-2 focus:border-transparent',
+    disabled
+      ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+      : isEmpty
+        ? 'border-red-400 bg-red-50 focus:ring-red-400 cursor-pointer'
+        : 'border-gray-300 bg-white text-gray-800 focus:ring-blue-500 cursor-pointer',
   ].join(' ')
 
   return (
-    <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
+    <div className={`grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0 ${disabled ? 'opacity-50' : ''}`}>
       <div className="md:col-span-2 pt-2 leading-snug">
-        <label className="text-sm font-semibold text-gray-700">
+        <label className={`text-sm font-semibold ${disabled ? 'text-gray-400' : 'text-gray-700'}`}>
           {label}
           {required && <span className="ml-0.5 text-red-500">*</span>}
         </label>
@@ -50,7 +52,7 @@ export function DateField({ label, name, value, onChange, showErrors = false, re
           locale="fr"
           dateFormat="dd/MM/yyyy"
           selected={toDate(value)}
-          onChange={date => onChange({ [name]: toISO(date) })}
+          onChange={date => !disabled && onChange({ [name]: toISO(date) })}
           placeholderText="jj/mm/aaaa"
           className={triggerCls}
           wrapperClassName="w-full"
@@ -58,6 +60,7 @@ export function DateField({ label, name, value, onChange, showErrors = false, re
           showYearDropdown
           dropdownMode="select"
           yearDropdownItemNumber={10}
+          disabled={disabled}
         />
         {isEmpty && <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>}
       </div>
@@ -69,28 +72,29 @@ export function Field({
   label, name, value, onChange,
   type = 'textarea', placeholder = '', rows = 3,
   readOnly = false, showErrors = false, required = true,
-  savedFields,
+  savedFields, disabled = false,
 }) {
   const prefilled = savedFields?.has(name) ?? false
-  const isEmpty = required && showErrors && (!value || String(value).trim() === '')
+  const isEmpty = required && showErrors && !disabled && (!value || String(value).trim() === '')
 
   const base = 'w-full border rounded-lg px-3 py-2 text-sm transition'
   const normal   = 'border-gray-300 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent'
   const errorCls = 'border-red-400 bg-red-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-transparent'
   const preCls   = 'border-teal-300 bg-teal-50 text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent'
   const roCls    = 'border-blue-200 bg-blue-50 text-blue-900 font-semibold cursor-default'
+  const disCls   = 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
 
-  const inputCls = `${base} ${readOnly ? roCls : isEmpty ? errorCls : prefilled ? preCls : normal}`
+  const inputCls = `${base} ${disabled ? disCls : readOnly ? roCls : isEmpty ? errorCls : prefilled ? preCls : normal}`
 
   return (
-    <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
+    <div className={`grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0 ${disabled ? 'opacity-50' : ''}`}>
       <div className="md:col-span-2 pt-2 leading-snug">
-        <label className="text-sm font-semibold text-gray-700">
+        <label className={`text-sm font-semibold ${disabled ? 'text-gray-400' : 'text-gray-700'}`}>
           {label}
           {readOnly && <span className="ml-1.5 text-xs font-normal text-blue-500 italic">(automatique)</span>}
           {required && !readOnly && <span className="ml-0.5 text-red-500">*</span>}
         </label>
-        {prefilled && !readOnly && (
+        {prefilled && !readOnly && !disabled && (
           <span className="mt-1 inline-flex items-center gap-1 bg-teal-100 text-teal-700 text-xs font-semibold px-1.5 py-0.5 rounded">
             <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
               <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
@@ -109,20 +113,22 @@ export function Field({
             onChange={e => onChange({ [name]: e.target.value })}
             rows={rows}
             placeholder={placeholder}
-            readOnly={readOnly}
+            readOnly={readOnly || disabled}
+            disabled={disabled}
             className={`${inputCls} resize-y`}
           />
         ) : type === 'yesno' ? (
           <div>
             <div className={`flex gap-4 pt-2 rounded-lg ${isEmpty ? 'bg-red-50 px-3 py-1 border border-red-400' : ''}`}>
               {['Oui', 'Non'].map(opt => (
-                <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                <label key={opt} className={`flex items-center gap-2 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                   <input
                     type="radio"
                     name={name}
                     value={opt}
                     checked={value === opt}
-                    onChange={() => onChange({ [name]: opt })}
+                    onChange={() => !disabled && onChange({ [name]: opt })}
+                    disabled={disabled}
                     className="accent-blue-800 w-4 h-4"
                   />
                   <span className="text-sm text-gray-700">{opt}</span>
@@ -138,7 +144,8 @@ export function Field({
             value={value}
             onChange={e => onChange({ [name]: e.target.value })}
             placeholder={placeholder}
-            readOnly={readOnly}
+            readOnly={readOnly || disabled}
+            disabled={disabled}
             className={inputCls}
           />
         )}

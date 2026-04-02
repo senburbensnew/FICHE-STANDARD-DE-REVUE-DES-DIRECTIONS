@@ -1,5 +1,5 @@
 require('dotenv').config()
-const mongoose = require('mongoose')
+const sequelize = require('./db')
 const Fiche = require('./models/Fiche')
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -143,29 +143,29 @@ function buildFiche(dir, periode) {
 }
 
 async function seed() {
-  await mongoose.connect(process.env.MONGODB_URI)
-  console.log('Connecté à MongoDB')
+  await sequelize.sync()
+  console.log('Connecté à MySQL')
 
-  await Fiche.deleteMany({})
+  await Fiche.destroy({ truncate: true })
   console.log('Fiches existantes supprimées')
 
   const fiches = []
 
   for (const dir of DIRECTIONS) {
     // Not every direction submits every month — vary coverage
-    const periodesDir = PERIODES.filter((_, i) => Math.random() > 0.2)
+    const periodesDir = PERIODES.filter(() => Math.random() > 0.2)
     for (const periode of periodesDir) {
-      const fiche = buildFiche(dir, periode)
-      fiches.push({ ...fiche, createdAt: periode.created, updatedAt: periode.created })
+      fiches.push({
+        ...buildFiche(dir, periode),
+        createdAt: periode.created,
+        updatedAt: periode.created,
+      })
     }
   }
 
-  // Use insertMany with timestamps disabled so we can set createdAt manually
-  await Fiche.collection.insertMany(
-    fiches.map(f => ({ ...f, createdAt: f.createdAt, updatedAt: f.updatedAt }))
-  )
+  await Fiche.bulkCreate(fiches)
   console.log(`${fiches.length} fiches insérées pour ${DIRECTIONS.length} directions sur ${PERIODES.length} périodes`)
-  await mongoose.disconnect()
+  await sequelize.close()
 }
 
 seed().catch(err => { console.error(err); process.exit(1) })

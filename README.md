@@ -33,7 +33,7 @@ A full-stack web application for managing standardized direction review forms, s
 3. Access the app:
    - Frontend: http://localhost
    - Backend API: http://localhost:5000/api
-   - Keycloak admin: http://localhost:8080 (default credentials: `admin` / `admin`)
+   - Keycloak admin: http://localhost:8180 (default credentials: `admin` / `admin`)
 
 ## Environment Variables
 

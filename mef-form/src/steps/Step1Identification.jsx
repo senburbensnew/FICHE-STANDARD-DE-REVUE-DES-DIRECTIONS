@@ -5,7 +5,8 @@ import { fetchDirections, addDirection } from '../api'
 const EMPTY_MODAL = { nom: '', responsable: '', fonction: '', localisation: '', coordonneesTel: '', adresseEmail: '', missionPrincipale: '', principalesAttributions: '', principauxServices: '' }
 
 export default function Step1Identification({ data, onChange, showErrors, savedFields }) {
-  const f = { onChange, showErrors, savedFields }
+  const locked = !data.intituleDirection
+  const f = { onChange, showErrors, savedFields, disabled: locked }
   const [directions, setDirections] = useState([])
   const [modalOpen, setModalOpen] = useState(false)
   const [modalData, setModalData] = useState(EMPTY_MODAL)
@@ -91,7 +92,7 @@ export default function Step1Identification({ data, onChange, showErrors, savedF
         />
         <Field label="Responsable" name="responsable" value={data.responsable} {...f} type="text" />
         <Field label="Fonction" name="fonction" value={data.fonction} {...f} type="text" />
-        <DateField label="Date de la réunion" name="dateReunion" value={data.dateReunion} onChange={onChange} showErrors={showErrors} />
+        <DateField label="Date de la réunion" name="dateReunion" value={data.dateReunion} onChange={onChange} showErrors={showErrors} disabled={locked} />
         <Field label="Période couverte par la revue" name="periodeCoverte" value={data.periodeCoverte} {...f} type="text" readOnly />
         <Field label="Localisation" name="localisation" value={data.localisation} {...f} type="text" />
         <Field label="Coordonnées téléphoniques" name="coordonneesTel" value={data.coordonneesTel} {...f} type="tel" />

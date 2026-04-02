@@ -1,19 +1,35 @@
 const express = require('express')
 const router = express.Router()
-const Fiche = require('../models/Fiche')
+const { QueryTypes } = require('sequelize')
+const sequelize = require('../db')
 
 // GET /api/analytics/overview — chiffres globaux
 router.get('/overview', async (req, res) => {
   try {
-    const total = await Fiche.countDocuments()
+    const [[{ total }]] = await sequelize.query(
+      'SELECT COUNT(*) AS total FROM fiches',
+      { type: QueryTypes.SELECT, raw: true, plain: false }
+    )
 
-    const now = new Date()
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const ceMois = await Fiche.countDocuments({ createdAt: { $gte: startOfMonth } })
+    const startOfMonth = new Date()
+    startOfMonth.setDate(1)
+    startOfMonth.setHours(0, 0, 0, 0)
 
-    const directionsActives = await Fiche.distinct('intituleDirection')
+    const [[{ ceMois }]] = await sequelize.query(
+      'SELECT COUNT(*) AS ceMois FROM fiches WHERE createdAt >= :start',
+      { replacements: { start: startOfMonth }, type: QueryTypes.SELECT, raw: true, plain: false }
+    )
 
-    res.json({ total, ceMois, directionsActives: directionsActives.length })
+    const [[{ directionsActives }]] = await sequelize.query(
+      'SELECT COUNT(DISTINCT intituleDirection) AS directionsActives FROM fiches',
+      { type: QueryTypes.SELECT, raw: true, plain: false }
+    )
+
+    res.json({
+      total: Number(total),
+      ceMois: Number(ceMois),
+      directionsActives: Number(directionsActives),
+    })
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
@@ -22,13 +38,15 @@ router.get('/overview', async (req, res) => {
 // GET /api/analytics/par-direction — nb de fiches par direction
 router.get('/par-direction', async (req, res) => {
   try {
-    const data = await Fiche.aggregate([
-      { $group: { _id: '$intituleDirection', total: { $sum: 1 } } },
-      { $sort: { total: -1 } },
-      { $limit: 15 },
-      { $project: { direction: '$_id', total: 1, _id: 0 } },
-    ])
-    res.json(data)
+    const data = await sequelize.query(
+      `SELECT intituleDirection AS direction, COUNT(*) AS total
+       FROM fiches
+       GROUP BY intituleDirection
+       ORDER BY total DESC
+       LIMIT 15`,
+      { type: QueryTypes.SELECT }
+    )
+    res.json(data.map(r => ({ ...r, total: Number(r.total) })))
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
@@ -42,24 +60,19 @@ router.get('/par-mois', async (req, res) => {
     since.setDate(1)
     since.setHours(0, 0, 0, 0)
 
-    const data = await Fiche.aggregate([
-      { $match: { createdAt: { $gte: since } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-          },
-          total: { $sum: 1 },
-        },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ])
+    const data = await sequelize.query(
+      `SELECT YEAR(createdAt) AS yr, MONTH(createdAt) AS mo, COUNT(*) AS total
+       FROM fiches
+       WHERE createdAt >= :since
+       GROUP BY yr, mo
+       ORDER BY yr ASC, mo ASC`,
+      { replacements: { since }, type: QueryTypes.SELECT }
+    )
 
     const MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
     const result = data.map(d => ({
-      mois: `${MOIS[d._id.month - 1]} ${d._id.year}`,
-      total: d.total,
+      mois:  `${MOIS[Number(d.mo) - 1]} ${d.yr}`,
+      total: Number(d.total),
     }))
     res.json(result)
   } catch (err) {
@@ -70,11 +83,13 @@ router.get('/par-mois', async (req, res) => {
 // GET /api/analytics/locaux — locaux adaptés oui/non
 router.get('/locaux', async (req, res) => {
   try {
-    const data = await Fiche.aggregate([
-      { $group: { _id: '$locauxAdaptes', total: { $sum: 1 } } },
-      { $project: { statut: '$_id', total: 1, _id: 0 } },
-    ])
-    res.json(data)
+    const data = await sequelize.query(
+      `SELECT locauxAdaptes AS statut, COUNT(*) AS total
+       FROM fiches
+       GROUP BY locauxAdaptes`,
+      { type: QueryTypes.SELECT }
+    )
+    res.json(data.map(r => ({ ...r, total: Number(r.total) })))
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
@@ -83,11 +98,13 @@ router.get('/locaux', async (req, res) => {
 // GET /api/analytics/rapports — rapports périodiques oui/non
 router.get('/rapports', async (req, res) => {
   try {
-    const data = await Fiche.aggregate([
-      { $group: { _id: '$rapportsPeriodiques', total: { $sum: 1 } } },
-      { $project: { statut: '$_id', total: 1, _id: 0 } },
-    ])
-    res.json(data)
+    const data = await sequelize.query(
+      `SELECT rapportsPeriodiques AS statut, COUNT(*) AS total
+       FROM fiches
+       GROUP BY rapportsPeriodiques`,
+      { type: QueryTypes.SELECT }
+    )
+    res.json(data.map(r => ({ ...r, total: Number(r.total) })))
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
@@ -96,13 +113,15 @@ router.get('/rapports', async (req, res) => {
 // GET /api/analytics/par-periode — nb de fiches par période couverte
 router.get('/par-periode', async (req, res) => {
   try {
-    const data = await Fiche.aggregate([
-      { $group: { _id: '$periodeCoverte', total: { $sum: 1 } } },
-      { $sort: { total: -1 } },
-      { $limit: 12 },
-      { $project: { periode: '$_id', total: 1, _id: 0 } },
-    ])
-    res.json(data)
+    const data = await sequelize.query(
+      `SELECT periodeCoverte AS periode, COUNT(*) AS total
+       FROM fiches
+       GROUP BY periodeCoverte
+       ORDER BY total DESC
+       LIMIT 12`,
+      { type: QueryTypes.SELECT }
+    )
+    res.json(data.map(r => ({ ...r, total: Number(r.total) })))
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
@@ -111,26 +130,18 @@ router.get('/par-periode', async (req, res) => {
 // GET /api/analytics/effectifs — effectif théorique vs disponible par direction
 router.get('/effectifs', async (req, res) => {
   try {
-    const data = await Fiche.aggregate([
-      {
-        $group: {
-          _id: '$intituleDirection',
-          theorique:   { $avg: { $toInt: '$effectifTheorique' } },
-          disponible:  { $avg: { $toInt: '$effectifDisponible' } },
-        },
-      },
-      { $sort: { theorique: -1 } },
-      { $limit: 12 },
-      {
-        $project: {
-          direction: '$_id',
-          theorique:  { $round: ['$theorique', 0] },
-          disponible: { $round: ['$disponible', 0] },
-          _id: 0,
-        },
-      },
-    ])
-    res.json(data)
+    const data = await sequelize.query(
+      `SELECT
+         intituleDirection AS direction,
+         ROUND(AVG(CAST(effectifTheorique  AS UNSIGNED)), 0) AS theorique,
+         ROUND(AVG(CAST(effectifDisponible AS UNSIGNED)), 0) AS disponible
+       FROM fiches
+       GROUP BY intituleDirection
+       ORDER BY theorique DESC
+       LIMIT 12`,
+      { type: QueryTypes.SELECT }
+    )
+    res.json(data.map(r => ({ ...r, theorique: Number(r.theorique), disponible: Number(r.disponible) })))
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
@@ -139,47 +150,54 @@ router.get('/effectifs', async (req, res) => {
 // GET /api/analytics/equipements — internet & electricité distribution
 router.get('/equipements', async (req, res) => {
   try {
-    const classify = (field, keywords) => ({
-      $switch: {
-        branches: keywords.map(([label, terms]) => ({
-          case: {
-            $or: terms.map(t => ({
-              $regexMatch: { input: { $toLower: `$${field}` }, regex: t },
-            })),
-          },
-          then: label,
-        })),
-        default: 'Autre',
-      },
-    })
-
-    const internetLabels = [
-      ['Stable',    ['fibre', 'stable', 'satisfais']],
-      ['Lente / instable', ['lente', 'instable', 'interruption']],
-      ['Données mobiles', ['mobile', 'données mob']],
-      ['Inexistant', ['pas de connexion', 'inexist', 'absent']],
-    ]
-    const electriciteLabels = [
-      ['EDH + Groupe',    ['edh stable', 'edh.*groupe', 'groupe.*edh']],
-      ['Groupe seul',     ['groupe électrogène permanent', 'groupe seul']],
-      ['EDH défaillant',  ['défaill', 'coupures', 'défaillant']],
-      ['Pas de groupe',   ['pas de groupe']],
-    ]
-
     const [internet, electricite] = await Promise.all([
-      Fiche.aggregate([
-        { $group: { _id: classify('internet', internetLabels), total: { $sum: 1 } } },
-        { $project: { statut: '$_id', total: 1, _id: 0 } },
-        { $sort: { total: -1 } },
-      ]),
-      Fiche.aggregate([
-        { $group: { _id: classify('electricite', electriciteLabels), total: { $sum: 1 } } },
-        { $project: { statut: '$_id', total: 1, _id: 0 } },
-        { $sort: { total: -1 } },
-      ]),
+      sequelize.query(
+        `SELECT
+           CASE
+             WHEN LOWER(internet) LIKE '%fibre%'
+               OR LOWER(internet) LIKE '%stable%'
+               OR LOWER(internet) LIKE '%satisfais%'       THEN 'Stable'
+             WHEN LOWER(internet) LIKE '%lente%'
+               OR LOWER(internet) LIKE '%instable%'
+               OR LOWER(internet) LIKE '%interruption%'    THEN 'Lente / instable'
+             WHEN LOWER(internet) LIKE '%mobile%'
+               OR LOWER(internet) LIKE '%données mob%'     THEN 'Données mobiles'
+             WHEN LOWER(internet) LIKE '%pas de connexion%'
+               OR LOWER(internet) LIKE '%inexist%'
+               OR LOWER(internet) LIKE '%absent%'          THEN 'Inexistant'
+             ELSE 'Autre'
+           END AS statut,
+           COUNT(*) AS total
+         FROM fiches
+         GROUP BY statut
+         ORDER BY total DESC`,
+        { type: QueryTypes.SELECT }
+      ),
+      sequelize.query(
+        `SELECT
+           CASE
+             WHEN LOWER(electricite) LIKE '%edh stable%'
+               OR (LOWER(electricite) LIKE '%edh%' AND LOWER(electricite) LIKE '%groupe%') THEN 'EDH + Groupe'
+             WHEN LOWER(electricite) LIKE '%groupe électrogène permanent%'
+               OR LOWER(electricite) LIKE '%groupe seul%'                                  THEN 'Groupe seul'
+             WHEN LOWER(electricite) LIKE '%défaill%'
+               OR LOWER(electricite) LIKE '%coupures%'
+               OR LOWER(electricite) LIKE '%défaillant%'                                   THEN 'EDH défaillant'
+             WHEN LOWER(electricite) LIKE '%pas de groupe%'                                THEN 'Pas de groupe'
+             ELSE 'Autre'
+           END AS statut,
+           COUNT(*) AS total
+         FROM fiches
+         GROUP BY statut
+         ORDER BY total DESC`,
+        { type: QueryTypes.SELECT }
+      ),
     ])
 
-    res.json({ internet, electricite })
+    res.json({
+      internet:    internet.map(r    => ({ ...r,    total: Number(r.total) })),
+      electricite: electricite.map(r => ({ ...r, total: Number(r.total) })),
+    })
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }

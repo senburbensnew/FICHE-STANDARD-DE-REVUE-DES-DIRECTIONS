@@ -1,5 +1,6 @@
 const express = require('express')
 const router = express.Router()
+const { Op, ValidationError } = require('sequelize')
 const Fiche = require('../models/Fiche')
 
 // Retourne le nombre de jours entiers restants avant la réunion (peut être négatif)
@@ -17,7 +18,7 @@ router.post('/', async (req, res) => {
     const { intituleDirection, periodeCoverte, dateReunion } = req.body
 
     // Règle 1 : une direction ne peut soumettre qu'une seule fois par mois (periodeCoverte)
-    const doublon = await Fiche.findOne({ intituleDirection, periodeCoverte })
+    const doublon = await Fiche.findOne({ where: { intituleDirection, periodeCoverte } })
     if (doublon) {
       return res.status(409).json({
         message: `La direction "${intituleDirection}" a déjà soumis une fiche pour la période "${periodeCoverte}".`,
@@ -31,12 +32,11 @@ router.post('/', async (req, res) => {
       })
     }
 
-    const fiche = new Fiche(req.body)
-    const saved = await fiche.save()
-    res.status(201).json({ message: 'Fiche enregistrée avec succès', id: saved._id })
+    const saved = await Fiche.create(req.body)
+    res.status(201).json({ message: 'Fiche enregistrée avec succès', id: saved.id })
   } catch (err) {
-    if (err.name === 'ValidationError') {
-      const fields = Object.keys(err.errors)
+    if (err instanceof ValidationError) {
+      const fields = err.errors.map(e => e.path)
       return res.status(400).json({ message: 'Champs manquants ou invalides', fields })
     }
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
@@ -47,13 +47,15 @@ router.post('/', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     const { direction, mois } = req.query
-    const filter = {}
-    if (direction) filter.intituleDirection = { $regex: direction, $options: 'i' }
-    if (mois) filter.periodeCoverte = { $regex: mois, $options: 'i' }
+    const where = {}
+    if (direction) where.intituleDirection = { [Op.like]: `%${direction}%` }
+    if (mois) where.periodeCoverte = { [Op.like]: `%${mois}%` }
 
-    const fiches = await Fiche.find(filter)
-      .select('intituleDirection responsable periodeCoverte dateReunion createdAt')
-      .sort({ createdAt: -1 })
+    const fiches = await Fiche.findAll({
+      where,
+      attributes: ['id', 'intituleDirection', 'responsable', 'periodeCoverte', 'dateReunion', 'createdAt'],
+      order: [['createdAt', 'DESC']],
+    })
     res.json(fiches)
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
@@ -63,7 +65,7 @@ router.get('/', async (req, res) => {
 // GET /api/fiches/:id — détail d'une fiche
 router.get('/:id', async (req, res) => {
   try {
-    const fiche = await Fiche.findById(req.params.id)
+    const fiche = await Fiche.findByPk(req.params.id)
     if (!fiche) return res.status(404).json({ message: 'Fiche introuvable' })
     res.json(fiche)
   } catch (err) {
@@ -74,7 +76,7 @@ router.get('/:id', async (req, res) => {
 // PUT /api/fiches/:id — mettre à jour une fiche
 router.put('/:id', async (req, res) => {
   try {
-    const existing = await Fiche.findById(req.params.id)
+    const existing = await Fiche.findByPk(req.params.id)
     if (!existing) return res.status(404).json({ message: 'Fiche introuvable' })
 
     // Règle : la modification n'est autorisée que jusqu'à 2 jours avant la réunion
@@ -84,11 +86,8 @@ router.put('/:id', async (req, res) => {
       })
     }
 
-    const fiche = await Fiche.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    })
-    res.json({ message: 'Fiche mise à jour', fiche })
+    await existing.update(req.body)
+    res.json({ message: 'Fiche mise à jour', fiche: existing })
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
@@ -97,8 +96,9 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/fiches/:id — supprimer une fiche
 router.delete('/:id', async (req, res) => {
   try {
-    const fiche = await Fiche.findByIdAndDelete(req.params.id)
+    const fiche = await Fiche.findByPk(req.params.id)
     if (!fiche) return res.status(404).json({ message: 'Fiche introuvable' })
+    await fiche.destroy()
     res.json({ message: 'Fiche supprimée' })
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })

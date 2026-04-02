@@ -1,5 +1,6 @@
 const express = require('express')
 const router = express.Router()
+const { UniqueConstraintError } = require('sequelize')
 const Direction = require('../models/Direction')
 
 const SEED = [
@@ -37,11 +38,11 @@ const SEED = [
   'Cellule de Passation des Marchés',
 ]
 
-// Seed on first use if collection is empty
+// Seed on first use if table is empty
 async function seedIfEmpty() {
-  const count = await Direction.countDocuments()
+  const count = await Direction.count()
   if (count === 0) {
-    await Direction.insertMany(SEED.map(nom => ({ nom })))
+    await Direction.bulkCreate(SEED.map(nom => ({ nom })), { ignoreDuplicates: true })
   }
 }
 
@@ -49,7 +50,10 @@ async function seedIfEmpty() {
 router.get('/', async (req, res) => {
   try {
     await seedIfEmpty()
-    const directions = await Direction.find().sort({ nom: 1 }).select('-__v -createdAt -updatedAt')
+    const directions = await Direction.findAll({
+      attributes: { exclude: ['createdAt', 'updatedAt'] },
+      order: [['nom', 'ASC']],
+    })
     res.json(directions)
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
@@ -75,7 +79,7 @@ router.post('/', async (req, res) => {
     })
     res.status(201).json(direction)
   } catch (err) {
-    if (err.code === 11000) return res.status(409).json({ message: 'Cette direction existe déjà.' })
+    if (err instanceof UniqueConstraintError) return res.status(409).json({ message: 'Cette direction existe déjà.' })
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
 })
@@ -83,8 +87,9 @@ router.post('/', async (req, res) => {
 // DELETE /api/directions/:nom — supprimer une direction
 router.delete('/:nom', async (req, res) => {
   try {
-    const result = await Direction.findOneAndDelete({ nom: decodeURIComponent(req.params.nom) })
-    if (!result) return res.status(404).json({ message: 'Direction introuvable.' })
+    const direction = await Direction.findOne({ where: { nom: decodeURIComponent(req.params.nom) } })
+    if (!direction) return res.status(404).json({ message: 'Direction introuvable.' })
+    await direction.destroy()
     res.json({ message: 'Direction supprimée.' })
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
