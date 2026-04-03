@@ -11,8 +11,9 @@
 
   "roles": {
     "realm": [
-      { "name": "mef-admin",  "description": "Administrateur — accès complet dont le tableau de bord" },
-      { "name": "mef-agent",  "description": "Agent — soumission de fiches uniquement" }
+      { "name": "admin",              "description": "Administrateur — accès complet" },
+      { "name": "responsable",        "description": "Responsable de direction — saisie et suivi des revues" },
+      { "name": "direction-generale", "description": "Direction Générale — consultation et validation" }
     ]
   },
 
@@ -52,16 +53,13 @@
       "lastName": "MEF",
       "enabled": true,
       "credentials": [{ "type": "password", "value": "Admin@1234", "temporary": true }],
-      "realmRoles": ["mef-admin", "mef-agent"]
-    },
-    {
-      "username": "agent.mef",
-      "email": "agent@mef.gouv.ht",
-      "firstName": "Agent",
-      "lastName": "MEF",
-      "enabled": true,
-      "credentials": [{ "type": "password", "value": "Agent@1234", "temporary": true }],
-      "realmRoles": ["mef-agent"]
+      "realmRoles": ["admin"],
+      "attributes": {
+        "fonction":     ["Administrateur Système"],
+        "telephone":    [""],
+        "actif":        ["true"],
+        "direction_id": [""]
+      }
     }
   ]
 }

@@ -40,9 +40,9 @@ export function DateField({ label, name, value, onChange, showErrors = false, re
   ].join(' ')
 
   return (
-    <div className={`grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0 ${disabled ? 'opacity-50' : ''}`}>
+    <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
       <div className="md:col-span-2 pt-2 leading-snug">
-        <label className={`text-sm font-semibold ${disabled ? 'text-gray-400' : 'text-gray-700'}`}>
+        <label className="text-sm font-semibold text-gray-700">
           {label}
           {required && <span className="ml-0.5 text-red-500">*</span>}
         </label>
@@ -87,9 +87,9 @@ export function Field({
   const inputCls = `${base} ${disabled ? disCls : readOnly ? roCls : isEmpty ? errorCls : prefilled ? preCls : normal}`
 
   return (
-    <div className={`grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0 ${disabled ? 'opacity-50' : ''}`}>
+    <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
       <div className="md:col-span-2 pt-2 leading-snug">
-        <label className={`text-sm font-semibold ${disabled ? 'text-gray-400' : 'text-gray-700'}`}>
+        <label className="text-sm font-semibold text-gray-700">
           {label}
           {readOnly && <span className="ml-1.5 text-xs font-normal text-blue-500 italic">(automatique)</span>}
           {required && !readOnly && <span className="ml-0.5 text-red-500">*</span>}
@@ -160,7 +160,6 @@ export function Field({
 export function SearchableSelect({
   label, name, value, onChange,
   options = [], showErrors = false, required = true, savedFields,
-  onAddClick,
 }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -234,7 +233,7 @@ export function SearchableSelect({
         </button>
 
         {open && (
-          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg">
+          <div className="absolute z-200 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg flex flex-col">
             <div className="p-2 border-b border-gray-100">
               <input
                 ref={inputRef}
@@ -245,7 +244,7 @@ export function SearchableSelect({
                 className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <ul className="max-h-56 overflow-y-auto py-1">
+            <ul className="max-h-56 overflow-y-auto py-1 flex-1">
               {filtered.length === 0 && (
                 <li className="px-3 py-2 text-sm text-gray-400 italic">Aucun résultat</li>
               )}
@@ -258,20 +257,6 @@ export function SearchableSelect({
                   {option}
                 </li>
               ))}
-              {onAddClick && (
-                <li className="px-2 py-2 border-t border-gray-100">
-                  <button
-                    type="button"
-                    onMouseDown={() => { setOpen(false); setQuery(''); onAddClick() }}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm text-blue-700 font-medium hover:bg-blue-50 transition"
-                  >
-                    <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Ajouter une direction / unité
-                  </button>
-                </li>
-              )}
             </ul>
           </div>
         )}
@@ -286,6 +271,197 @@ export function FieldGroup({ children }) {
   return (
     <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 px-4">
       {children}
+    </div>
+  )
+}
+
+export function SubGroup({ title, children }) {
+  return (
+    <fieldset className="border border-gray-200 rounded-xl overflow-hidden">
+      <legend className="ml-4 px-2 text-xs font-bold text-blue-700 uppercase tracking-widest bg-white">
+        {title}
+      </legend>
+      <div className="px-4 divide-y divide-gray-100">
+        {children}
+      </div>
+    </fieldset>
+  )
+}
+
+/**
+ * DynamicList — liste d'entrées texte avec boutons Ajouter / Supprimer
+ * Props :
+ *   label       : intitulé de la section
+ *   name        : clé dans formData (contient un tableau de strings)
+ *   value       : tableau de strings
+ *   onChange    : (updatedArray) => void   ← reçoit le tableau complet mis à jour
+ *   showErrors  : boolean
+ *   required    : boolean (au moins 1 entrée non vide requise)
+ *   placeholder : texte d'espace réservé
+ *   maxItems    : nombre max d'entrées (optionnel)
+ */
+export function DynamicList({
+  label, name, value = [''], onChange,
+  showErrors = false, required = true,
+  placeholder = 'Saisir une valeur…', maxItems = 20,
+}) {
+  const items = Array.isArray(value) && value.length > 0 ? value : ['']
+  const hasError = required && showErrors && !items.some(v => v && v.trim())
+
+  function update(idx, val) {
+    const next = [...items]
+    next[idx] = val
+    onChange(next)
+  }
+
+  function add() {
+    if (items.length >= maxItems) return
+    onChange([...items, ''])
+  }
+
+  function remove(idx) {
+    if (items.length <= 1) { onChange(['']); return }
+    const next = items.filter((_, i) => i !== idx)
+    onChange(next)
+  }
+
+  return (
+    <div className="py-3 border-b border-gray-100 last:border-0">
+      <div className="grid md:grid-cols-5 gap-2 items-start">
+        <div className="md:col-span-2 pt-2 leading-snug">
+          <label className="text-sm font-semibold text-gray-700">
+            {label}
+            {required && <span className="ml-0.5 text-red-500">*</span>}
+          </label>
+        </div>
+        <div className="md:col-span-3 space-y-2">
+          {items.map((item, idx) => (
+            <div key={idx} className="flex gap-2">
+              <input
+                type="text"
+                value={item}
+                onChange={e => update(idx, e.target.value)}
+                placeholder={placeholder}
+                className={`flex-1 border rounded-lg px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:border-transparent ${
+                  hasError && !item.trim()
+                    ? 'border-red-400 bg-red-50 focus:ring-red-400'
+                    : 'border-gray-300 text-gray-800 focus:ring-blue-500'
+                }`}
+              />
+              <button
+                type="button"
+                onClick={() => remove(idx)}
+                className="shrink-0 w-8 h-8 mt-0.5 flex items-center justify-center rounded-md border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 transition"
+                title="Supprimer"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          {items.length < maxItems && (
+            <button
+              type="button"
+              onClick={add}
+              className="flex items-center gap-1.5 text-xs text-blue-700 hover:text-blue-900 font-medium mt-1"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Ajouter une entrée
+            </button>
+          )}
+          {hasError && (
+            <p className="text-xs text-red-500">Au moins une entrée est requise.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * DynamicTable — liste de paires {categorie, nombre} (pour répartition du personnel)
+ */
+export function DynamicTable({
+  label, name, value = [{ categorie: '', nombre: '' }], onChange,
+  showErrors = false, required = true,
+}) {
+  const rows = Array.isArray(value) && value.length > 0
+    ? value
+    : [{ categorie: '', nombre: '' }]
+
+  const hasError = required && showErrors && !rows.some(r => r.categorie && r.categorie.trim())
+
+  function update(idx, field, val) {
+    const next = rows.map((r, i) => i === idx ? { ...r, [field]: val } : r)
+    onChange(next)
+  }
+  function add() { onChange([...rows, { categorie: '', nombre: '' }]) }
+  function remove(idx) {
+    if (rows.length <= 1) { onChange([{ categorie: '', nombre: '' }]); return }
+    onChange(rows.filter((_, i) => i !== idx))
+  }
+
+  return (
+    <div className="py-3 border-b border-gray-100 last:border-0">
+      <div className="grid md:grid-cols-5 gap-2 items-start">
+        <div className="md:col-span-2 pt-2 leading-snug">
+          <label className="text-sm font-semibold text-gray-700">
+            {label}
+            {required && <span className="ml-0.5 text-red-500">*</span>}
+          </label>
+          <p className="text-xs text-gray-400 mt-0.5">Catégorie + Effectif</p>
+        </div>
+        <div className="md:col-span-3 space-y-2">
+          {rows.map((row, idx) => (
+            <div key={idx} className="flex gap-2">
+              <input
+                type="text"
+                value={row.categorie}
+                onChange={e => update(idx, 'categorie', e.target.value)}
+                placeholder="Ex. Catégorie A"
+                className={`flex-1 border rounded-lg px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:border-transparent ${
+                  hasError && !row.categorie.trim()
+                    ? 'border-red-400 bg-red-50 focus:ring-red-400'
+                    : 'border-gray-300 text-gray-800 focus:ring-blue-500'
+                }`}
+              />
+              <input
+                type="number"
+                value={row.nombre}
+                onChange={e => update(idx, 'nombre', e.target.value)}
+                placeholder="Nbre"
+                min="0"
+                className="w-20 border border-gray-300 rounded-lg px-2 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                type="button"
+                onClick={() => remove(idx)}
+                className="shrink-0 w-8 h-8 mt-0.5 flex items-center justify-center rounded-md border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                </svg>
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={add}
+            className="flex items-center gap-1.5 text-xs text-blue-700 hover:text-blue-900 font-medium mt-1"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Ajouter une catégorie
+          </button>
+          {hasError && (
+            <p className="text-xs text-red-500">Au moins une catégorie est requise.</p>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

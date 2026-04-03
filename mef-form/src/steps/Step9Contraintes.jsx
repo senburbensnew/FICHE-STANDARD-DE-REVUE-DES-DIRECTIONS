@@ -1,17 +1,17 @@
 import { SectionTitle } from '../components/FormField'
 
-function ListInputField({ label, name, value, onChange, placeholder, showErrors }) {
-  const isEmpty = showErrors && (!value || value.trim() === '')
+function OrderedInput({ label, value, onChange, placeholder, showErrors, required = true }) {
+  const isEmpty = showErrors && required && (!value || value.trim() === '')
   return (
     <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
       <label className="md:col-span-2 text-sm font-semibold text-gray-700 pt-2">
-        {label}<span className="ml-0.5 text-red-500">*</span>
+        {label}{required && <span className="ml-0.5 text-red-500">*</span>}
       </label>
       <div className="md:col-span-3">
         <input
           type="text"
           value={value}
-          onChange={e => onChange({ [name]: e.target.value })}
+          onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
           className={`w-full border rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:border-transparent transition ${
             isEmpty
@@ -25,35 +25,62 @@ function ListInputField({ label, name, value, onChange, placeholder, showErrors 
   )
 }
 
+/**
+ * Gère les contraintes (max 3) → table revue_contraintes {ordre, contrainte}
+ * et les besoins prioritaires (max 5) → table revue_besoins_prioritaires {ordre, besoin}
+ */
 export default function Step9Contraintes({ data, onChange, showErrors }) {
-  const f = { onChange, showErrors }
+  function updateContrainte(idx, val) {
+    const next = data.contraintes.map((c, i) => i === idx ? { ...c, contrainte: val } : c)
+    onChange({ contraintes: next })
+  }
+
+  function updateBesoin(idx, val) {
+    const next = data.besoinsPrioritaires.map((b, i) => i === idx ? { ...b, besoin: val } : b)
+    onChange({ besoinsPrioritaires: next })
+  }
+
   return (
     <div className="space-y-8">
-      {/* Section IX */}
+      {/* Section IX — Contraintes majeures (max 3) */}
       <div>
         <SectionTitle number="IX" title="Contraintes Majeures" />
         <p className="text-sm text-gray-500 mb-4">
-          Veuillez classer les trois principales contraintes de la structure :
+          Veuillez classer les trois principales contraintes de la structure (au moins la première est obligatoire) :
         </p>
         <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 px-4">
-          <ListInputField label="Contrainte 1" name="contrainte1" value={data.contrainte1} {...f} placeholder="Première contrainte principale..." />
-          <ListInputField label="Contrainte 2" name="contrainte2" value={data.contrainte2} {...f} placeholder="Deuxième contrainte principale..." />
-          <ListInputField label="Contrainte 3" name="contrainte3" value={data.contrainte3} {...f} placeholder="Troisième contrainte principale..." />
+          {data.contraintes.map((c, idx) => (
+            <OrderedInput
+              key={idx}
+              label={`Contrainte ${idx + 1}`}
+              value={c.contrainte}
+              onChange={(val) => updateContrainte(idx, val)}
+              placeholder={`${idx === 0 ? 'Contrainte principale…' : idx === 1 ? 'Deuxième contrainte…' : 'Troisième contrainte…'}`}
+              showErrors={showErrors}
+              required={idx === 0}
+            />
+          ))}
         </div>
       </div>
 
-      {/* Section X */}
+      {/* Section X — Besoins prioritaires (max 5) */}
       <div>
         <SectionTitle number="X" title="Besoins Prioritaires" />
         <p className="text-sm text-gray-500 mb-4">
-          Veuillez indiquer les besoins les plus urgents à satisfaire :
+          Veuillez indiquer les besoins les plus urgents à satisfaire (au moins le premier est obligatoire) :
         </p>
         <div className="divide-y divide-gray-100 border border-gray-200 rounded-lg overflow-hidden bg-gray-50 px-4">
-          <ListInputField label="Besoin 1" name="besoin1" value={data.besoin1} {...f} placeholder="Besoin prioritaire n°1..." />
-          <ListInputField label="Besoin 2" name="besoin2" value={data.besoin2} {...f} placeholder="Besoin prioritaire n°2..." />
-          <ListInputField label="Besoin 3" name="besoin3" value={data.besoin3} {...f} placeholder="Besoin prioritaire n°3..." />
-          <ListInputField label="Besoin 4" name="besoin4" value={data.besoin4} {...f} placeholder="Besoin prioritaire n°4..." />
-          <ListInputField label="Besoin 5" name="besoin5" value={data.besoin5} {...f} placeholder="Besoin prioritaire n°5..." />
+          {data.besoinsPrioritaires.map((b, idx) => (
+            <OrderedInput
+              key={idx}
+              label={`Besoin ${idx + 1}`}
+              value={b.besoin}
+              onChange={(val) => updateBesoin(idx, val)}
+              placeholder={`Besoin prioritaire n°${idx + 1}…`}
+              showErrors={showErrors}
+              required={idx === 0}
+            />
+          ))}
         </div>
       </div>
     </div>

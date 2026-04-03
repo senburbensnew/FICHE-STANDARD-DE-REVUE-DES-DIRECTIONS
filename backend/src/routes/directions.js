@@ -1,58 +1,18 @@
+/**
+ * Routes /api/directions — Gestion des directions (schéma normalisé)
+ * Table : directions (29 colonnes selon le document technique)
+ */
 const express = require('express')
-const router = express.Router()
+const router  = express.Router()
 const { UniqueConstraintError } = require('sequelize')
-const Direction = require('../models/Direction')
-
-const SEED = [
-  // Direction Générale
-  'Direction Générale',
-  'Cabinet du Ministre',
-  'Cabinet du Ministre Délégué',
-  'Secrétariat Général',
-
-  // Directions Centrales
-  'Direction du Budget',
-  'Direction Générale des Impôts (DGI)',
-  'Direction Générale des Douanes (AGD)',
-  'Direction du Trésor',
-  'Direction de la Comptabilité Publique et du Contrôle Budgétaire (DPCB)',
-  'Direction des Assurances',
-  'Direction des Investissements Publics (DIP)',
-  'Direction de la Coopération Externe (DCE)',
-  'Direction des Études et de la Planification',
-  'Direction des Affaires Juridiques',
-  'Direction des Ressources Humaines',
-  'Direction Administrative',
-  'Direction des Technologies de l\'Information et de la Communication (DTIC)',
-  'Direction de la Communication',
-  'Direction du Patrimoine de l\'État',
-
-  // Unités et Services
-  'Unité d\'Études et de Programmation (UEP)',
-  'Unité de Lutte contre la Corruption (ULCC)',
-  'Unité Centrale de Renseignements Financiers (UCREF)',
-  'Service de l\'Inspection Générale des Finances (IGF)',
-  'Service des Archives et de la Documentation',
-  'Service du Contrôle Interne',
-  'Cellule de Gestion Financière',
-  'Cellule de Passation des Marchés',
-]
-
-// Seed on first use if table is empty
-async function seedIfEmpty() {
-  const count = await Direction.count()
-  if (count === 0) {
-    await Direction.bulkCreate(SEED.map(nom => ({ nom })), { ignoreDuplicates: true })
-  }
-}
+const { Direction } = require('../models/index')
 
 // GET /api/directions
 router.get('/', async (req, res) => {
   try {
-    await seedIfEmpty()
     const directions = await Direction.findAll({
-      attributes: { exclude: ['createdAt', 'updatedAt'] },
-      order: [['nom', 'ASC']],
+      attributes: { exclude: ['created_at', 'updated_at'] },
+      order: [['nom_direction', 'ASC']],
     })
     res.json(directions)
   } catch (err) {
@@ -60,22 +20,38 @@ router.get('/', async (req, res) => {
   }
 })
 
-// POST /api/directions — ajouter une direction
+// GET /api/directions/:id
+router.get('/:id', async (req, res) => {
+  try {
+    const direction = await Direction.findByPk(req.params.id)
+    if (!direction) return res.status(404).json({ message: 'Direction introuvable.' })
+    res.json(direction)
+  } catch (err) {
+    res.status(500).json({ message: 'Erreur serveur', error: err.message })
+  }
+})
+
+// POST /api/directions
 router.post('/', async (req, res) => {
   try {
-    const { nom, responsable, fonction, localisation, coordonneesTel, adresseEmail,
-            missionPrincipale, principalesAttributions, principauxServices } = req.body
-    if (!nom?.trim()) return res.status(400).json({ message: 'Le champ "nom" est requis.' })
+    const {
+      nom_direction, sigle, localisation_siege, email_officiel,
+      effectif_theorique, mission_principale, principales_attributions,
+      principaux_services_rendus, statut,
+    } = req.body
+
+    if (!nom_direction?.trim()) return res.status(400).json({ message: 'Le champ "nom_direction" est requis.' })
+
     const direction = await Direction.create({
-      nom: nom.trim(),
-      responsable:             responsable?.trim()             || '',
-      fonction:                fonction?.trim()                || '',
-      localisation:            localisation?.trim()            || '',
-      coordonneesTel:          coordonneesTel?.trim()          || '',
-      adresseEmail:            adresseEmail?.trim()            || '',
-      missionPrincipale:       missionPrincipale?.trim()       || '',
-      principalesAttributions: principalesAttributions?.trim() || '',
-      principauxServices:      principauxServices?.trim()      || '',
+      nom_direction:              nom_direction.trim(),
+      sigle:                      sigle?.trim()                      || null,
+      localisation_siege:         localisation_siege?.trim()         || '',
+      email_officiel:             email_officiel?.trim()             || '',
+      effectif_theorique:         effectif_theorique ? Number(effectif_theorique) : null,
+      mission_principale:         mission_principale?.trim()         || '',
+      principales_attributions:   principales_attributions?.trim()   || '',
+      principaux_services_rendus: principaux_services_rendus?.trim() || '',
+      statut:                     statut                             || 'Actif',
     })
     res.status(201).json(direction)
   } catch (err) {
@@ -84,10 +60,27 @@ router.post('/', async (req, res) => {
   }
 })
 
-// DELETE /api/directions/:nom — supprimer une direction
-router.delete('/:nom', async (req, res) => {
+// PUT /api/directions/:id
+router.put('/:id', async (req, res) => {
   try {
-    const direction = await Direction.findOne({ where: { nom: decodeURIComponent(req.params.nom) } })
+    const direction = await Direction.findByPk(req.params.id)
+    if (!direction) return res.status(404).json({ message: 'Direction introuvable.' })
+    await direction.update(req.body)
+    res.json(direction)
+  } catch (err) {
+    if (err instanceof UniqueConstraintError) return res.status(409).json({ message: 'Ce nom de direction existe déjà.' })
+    res.status(500).json({ message: 'Erreur serveur', error: err.message })
+  }
+})
+
+// DELETE /api/directions/:nom  (compat) ou /:id
+router.delete('/:id', async (req, res) => {
+  try {
+    // Accepte soit un UUID, soit un nom encodé
+    let direction = await Direction.findByPk(req.params.id)
+    if (!direction) {
+      direction = await Direction.findOne({ where: { nom_direction: decodeURIComponent(req.params.id) } })
+    }
     if (!direction) return res.status(404).json({ message: 'Direction introuvable.' })
     await direction.destroy()
     res.json({ message: 'Direction supprimée.' })
