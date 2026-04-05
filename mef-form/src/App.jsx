@@ -231,6 +231,13 @@ export default function App() {
     if (view === 'admin'        && (!authenticated || !isAdmin))                          view = 'accueil'
     if (view === 'historique'   && (!authenticated || (!isAdmin && !isDG)))               view = 'accueil'
     if (view === 'soumissions'  && (!authenticated || (!isResponsable && !isDG)))         view = 'accueil'
+    if (view === 'form') {
+      setSubmitted(false)
+      setFormData(buildInitialData(loadSaved()))
+      setCurrentStep(0)
+      setAttempted(new Set())
+      setMaxReached(0)
+    }
     setShowAccueil(view === 'accueil')
     setShowDashboard(view === 'dashboard')
     setShowAdmin(view === 'admin')
@@ -540,10 +547,9 @@ export default function App() {
     </div>
   )
 
-  if (submitted) {
-    goTo('soumissions')
-    return null
-  }
+  useEffect(() => {
+    if (submitted) goTo('soumissions')
+  }, [submitted])
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

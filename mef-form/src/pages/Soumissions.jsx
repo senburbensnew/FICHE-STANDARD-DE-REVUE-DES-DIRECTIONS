@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import DatePicker, { registerLocale } from 'react-datepicker'
 import { fetchRevues, fetchRevue } from '../api'
 import { useKeycloak } from '../keycloak'
 import { format, parseISO, isValid } from 'date-fns'
 import { fr } from 'date-fns/locale'
+
+registerLocale('fr', fr)
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -75,14 +78,14 @@ function RevueDetail({ revue, onClose, t }) {
   const dir = d.direction || {}
 
   // helpers to extract from nested model arrays
-  const rh   = d.rh || {}
+  const rh   = d.rh?.[0] || {}
   const infra = d.infrastructures?.[0] || {}
   const equip = d.equipements?.[0] || {}
   const comm  = d.communication?.[0] || {}
   const rapport = d.rapports?.[0] || {}
   const action  = d.actions?.[0] || {}
   const appui   = d.appuis?.[0] || {}
-  const sig     = d.signature || {}
+  const sig     = d.signature?.[0] || {}
 
   const activitesRealisees    = (d.activites || []).filter(a => a.type_activite === 'principale_realisee').map(a => a.description)
   const activitesEnCours      = (d.activites || []).filter(a => a.type_activite === 'en_cours').map(a => a.description)
@@ -347,11 +350,15 @@ export default function Soumissions({ user }) {
         )}
         <div className="flex flex-col gap-1">
           <label className="text-xs font-semibold text-gray-500">{t('submissions.filterPeriod')}</label>
-          <input
-            type="month"
-            value={filterMois}
-            onChange={e => setFilterMois(e.target.value)}
-            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          <DatePicker
+            locale="fr"
+            dateFormat="MM/yyyy"
+            showMonthYearPicker
+            selected={filterMois ? parseISO(filterMois + '-01') : null}
+            onChange={date => setFilterMois(date ? format(date, 'yyyy-MM') : '')}
+            placeholderText="mm/aaaa"
+            className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 cursor-pointer w-32"
+            isClearable
           />
         </div>
         {(filterDir || filterMois) && (

@@ -1,6 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
+import DatePicker, { registerLocale } from 'react-datepicker'
+import { fr } from 'date-fns/locale'
+import { parseISO, format, isValid } from 'date-fns'
 import { fetchAuditLogs } from '../api'
 import { useKeycloak } from '../keycloak'
+
+registerLocale('fr', fr)
+
+function toDate(iso) {
+  if (!iso) return null
+  const d = parseISO(iso)
+  return isValid(d) ? d : null
+}
+
+function toISO(date) {
+  return date ? format(date, 'yyyy-MM-dd') : ''
+}
 
 const ACTION_LABELS = { CREATE: 'Création', UPDATE: 'Modification', DELETE: 'Suppression' }
 const ACTION_COLORS = {
@@ -119,13 +134,35 @@ export default function Historique() {
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-gray-500">Du</label>
-            <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300" />
+            <DatePicker
+              locale="fr"
+              dateFormat="dd/MM/yyyy"
+              selected={toDate(filterFrom)}
+              onChange={date => setFilterFrom(toISO(date))}
+              placeholderText="jj/mm/aaaa"
+              className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300 cursor-pointer"
+              wrapperClassName="w-full"
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              isClearable
+            />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-semibold text-gray-500">Au</label>
-            <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)}
-              className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300" />
+            <DatePicker
+              locale="fr"
+              dateFormat="dd/MM/yyyy"
+              selected={toDate(filterTo)}
+              onChange={date => setFilterTo(toISO(date))}
+              placeholderText="jj/mm/aaaa"
+              className="text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-purple-300 cursor-pointer"
+              wrapperClassName="w-full"
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              isClearable
+            />
           </div>
           {hasFilters && (
             <button onClick={resetFilters}

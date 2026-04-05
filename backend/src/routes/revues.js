@@ -6,6 +6,7 @@ const express = require('express')
 const router  = express.Router()
 const { Op }  = require('sequelize')
 const { audit } = require('../auditLogger')
+const { encrypt, decrypt } = require('../utils/crypto')
 const {
   sequelize, Direction, Revue,
   RevueRH, RevueRepartitionPersonnel, RevueBesoinsPersonnel, RevueBesoinsFormation,
@@ -230,13 +231,13 @@ async function createSubtables(revue_id, body, t) {
     if (text && text.trim()) await RevueObservation.create({ revue_id, ordre: i + 1, observation: text.trim() }, opt)
   }
 
-  // Section XIV — Signature
+  // Section XIV — Signature (image encrypted at rest)
   await RevueSignature.create({
     revue_id,
     nom_signataire:      body.nomResponsable    || '',
     fonction_signataire: body.fonctionSignature || '',
     date_signature:      body.dateSignature || body.date || null,
-    signature_image:     body.signatureImage    || null,
+    signature_image:     encrypt(body.signatureImage) || null,
   }, opt)
 }
 
@@ -392,7 +393,11 @@ router.get('/:id', async (req, res) => {
       ],
     })
     if (!revue) return res.status(404).json({ message: 'Revue introuvable' })
-    res.json(revue)
+    const data = revue.toJSON()
+    if (data.signature?.[0]?.signature_image) {
+      data.signature[0].signature_image = decrypt(data.signature[0].signature_image)
+    }
+    res.json(data)
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })
   }
