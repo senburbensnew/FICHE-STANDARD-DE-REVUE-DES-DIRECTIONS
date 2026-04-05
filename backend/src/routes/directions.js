@@ -6,6 +6,7 @@ const express = require('express')
 const router  = express.Router()
 const { UniqueConstraintError } = require('sequelize')
 const { Direction } = require('../models/index')
+const { audit } = require('../auditLogger')
 
 // GET /api/directions
 router.get('/', async (req, res) => {
@@ -53,6 +54,7 @@ router.post('/', async (req, res) => {
       principaux_services_rendus: principaux_services_rendus?.trim() || '',
       statut:                     statut                             || 'Actif',
     })
+    await audit({ action: 'CREATE', entity_type: 'direction', entity_id: String(direction.direction_id), entity_label: direction.nom_direction, req })
     res.status(201).json(direction)
   } catch (err) {
     if (err instanceof UniqueConstraintError) return res.status(409).json({ message: 'Cette direction existe déjà.' })
@@ -66,6 +68,7 @@ router.put('/:id', async (req, res) => {
     const direction = await Direction.findByPk(req.params.id)
     if (!direction) return res.status(404).json({ message: 'Direction introuvable.' })
     await direction.update(req.body)
+    await audit({ action: 'UPDATE', entity_type: 'direction', entity_id: String(direction.direction_id), entity_label: direction.nom_direction, req })
     res.json(direction)
   } catch (err) {
     if (err instanceof UniqueConstraintError) return res.status(409).json({ message: 'Ce nom de direction existe déjà.' })
@@ -82,7 +85,48 @@ router.delete('/:id', async (req, res) => {
       direction = await Direction.findOne({ where: { nom_direction: decodeURIComponent(req.params.id) } })
     }
     if (!direction) return res.status(404).json({ message: 'Direction introuvable.' })
+
+    const directionId = String(direction.direction_id)
     await direction.destroy()
+
+    // Clear direction_id on all Keycloak users assigned to this direction
+    try {
+      const KC_URL   = process.env.KEYCLOAK_URL   || 'http://keycloak:8180'
+      const KC_REALM = process.env.KEYCLOAK_REALM || 'mef'
+      const KC_ADMIN = process.env.KC_ADMIN       || 'admin'
+      const KC_PASS  = process.env.KC_ADMIN_PASS  || 'admin'
+
+      const tokenRes = await fetch(`${KC_URL}/realms/master/protocol/openid-connect/token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: KC_ADMIN, password: KC_PASS }),
+      })
+      if (tokenRes.ok) {
+        const { access_token } = await tokenRes.json()
+        const usersRes = await fetch(
+          `${KC_URL}/admin/realms/${KC_REALM}/users?max=500`,
+          { headers: { Authorization: `Bearer ${access_token}` } }
+        )
+        if (usersRes.ok) {
+          const users = await usersRes.json()
+          const affected = users.filter(u => u.attributes?.direction_id?.[0] === directionId)
+          await Promise.all(affected.map(u =>
+            fetch(`${KC_URL}/admin/realms/${KC_REALM}/users/${u.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${access_token}` },
+              body: JSON.stringify({
+                ...u,
+                attributes: { ...u.attributes, direction_id: [''] },
+              }),
+            })
+          ))
+        }
+      }
+    } catch (_) {
+      // Non-blocking — direction is already deleted; log but don't fail
+    }
+
+    await audit({ action: 'DELETE', entity_type: 'direction', entity_id: directionId, entity_label: direction.nom_direction, req })
     res.json({ message: 'Direction supprimée.' })
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })

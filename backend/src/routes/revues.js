@@ -5,6 +5,7 @@
 const express = require('express')
 const router  = express.Router()
 const { Op }  = require('sequelize')
+const { audit } = require('../auditLogger')
 const {
   sequelize, Direction, Revue,
   RevueRH, RevueRepartitionPersonnel, RevueBesoinsPersonnel, RevueBesoinsFormation,
@@ -235,6 +236,7 @@ async function createSubtables(revue_id, body, t) {
     nom_signataire:      body.nomResponsable    || '',
     fonction_signataire: body.fonctionSignature || '',
     date_signature:      body.dateSignature || body.date || null,
+    signature_image:     body.signatureImage    || null,
   }, opt)
 }
 
@@ -300,6 +302,7 @@ router.post('/', async (req, res) => {
     await createSubtables(revue.revue_id, body, t)
 
     await t.commit()
+    await audit({ action: 'CREATE', entity_type: 'revue', entity_id: revue.revue_id, entity_label: `${body.intituleDirection} (${body.periodeDebut} → ${body.periodeFin})`, req })
     res.status(201).json({ message: 'Revue enregistrée avec succès', id: revue.revue_id })
   } catch (err) {
     await t.rollback()
@@ -327,11 +330,12 @@ router.get('/check', async (req, res) => {
 // ─── GET /api/revues ──────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   try {
-    const { direction, mois } = req.query
+    const { direction, direction_id, mois } = req.query
     const where = {}
     const dirWhere = {}
 
-    if (direction) dirWhere.nom_direction = { [Op.like]: `%${direction}%` }
+    if (direction_id) where.direction_id = direction_id
+    if (direction)    dirWhere.nom_direction = { [Op.like]: `%${direction}%` }
     if (mois) {
       where[Op.or] = [
         { periode_debut: { [Op.like]: `%${mois}%` } },
@@ -344,7 +348,7 @@ router.get('/', async (req, res) => {
       include: [
         { model: Direction, as: 'direction', attributes: ['nom_direction', 'sigle'], where: dirWhere, required: !!direction },
       ],
-      attributes: ['revue_id', 'periode_debut', 'periode_fin', 'date_reunion', 'statut', 'date_soumission'],
+      attributes: ['revue_id', 'direction_id', 'periode_debut', 'periode_fin', 'date_reunion', 'statut', 'date_soumission'],
       order: [['date_soumission', 'DESC']],
     })
     res.json(revues)
@@ -431,6 +435,7 @@ router.put('/:id', async (req, res) => {
     if (req.body.dateReunion) await revue.update({ date_reunion: req.body.dateReunion }, { transaction: t })
 
     await t.commit()
+    await audit({ action: 'UPDATE', entity_type: 'revue', entity_id: revue.revue_id, entity_label: `${req.body.intituleDirection || revue.revue_id} (${req.body.periodeDebut || ''} → ${req.body.periodeFin || ''})`, req })
     res.json({ message: 'Revue mise à jour' })
   } catch (err) {
     await t.rollback()
@@ -443,7 +448,9 @@ router.delete('/:id', async (req, res) => {
   try {
     const revue = await Revue.findByPk(req.params.id)
     if (!revue) return res.status(404).json({ message: 'Revue introuvable' })
+    const label = `revue ${revue.revue_id}`
     await revue.destroy()
+    await audit({ action: 'DELETE', entity_type: 'revue', entity_id: req.params.id, entity_label: label, req })
     res.json({ message: 'Revue supprimée' })
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur', error: err.message })

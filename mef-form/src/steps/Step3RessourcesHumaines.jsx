@@ -1,48 +1,45 @@
+import { useTranslation } from 'react-i18next'
 import { SectionTitle, Field, FieldGroup, DynamicList, DynamicTable } from '../components/FormField'
 
 export default function Step3RessourcesHumaines({ data, onChange, showErrors }) {
+  const { t } = useTranslation()
   const f = { onChange, showErrors }
   return (
     <div>
-      <SectionTitle number="III" title="Situation des Ressources Humaines" />
+      <SectionTitle number="III" title={t('steps.s3.title')} />
       <FieldGroup>
-        {/* Effectifs scalaires */}
-        <Field label="Effectif théorique" name="effectifTheorique" value={data.effectifTheorique} {...f} type="text" />
-        <Field label="Effectif en poste / Agent actif" name="effectifPoste" value={data.effectifPoste} {...f} type="text" />
-        <Field label="Effectif réellement disponible" name="effectifDisponible" value={data.effectifDisponible} {...f} type="text" />
-        <Field label="Postes vacants" name="postesVacants" value={data.postesVacants} {...f} type="text" />
+        <Field label={t('steps.s3.effectifTheorique')}   name="effectifTheorique"   value={data.effectifTheorique}   {...f} type="number" />
+        <Field label={t('steps.s3.effectifPoste')}       name="effectifPoste"       value={data.effectifPoste}       {...f} type="number" />
+        <Field label={t('steps.s3.effectifDisponible')}  name="effectifDisponible"  value={data.effectifDisponible}  {...f} type="number" />
+        <Field label={t('steps.s3.postesVacants')}       name="postesVacants"       value={data.postesVacants}       {...f} type="number" />
 
-        {/* Répartition par catégorie — table normalisée revue_repartition_personnel */}
         <DynamicTable
-          label="Répartition du personnel par catégorie"
+          label={t('steps.s3.repartition')}
           name="repartitionPersonnel"
           value={data.repartitionPersonnel}
           onChange={(val) => onChange({ repartitionPersonnel: val })}
           showErrors={showErrors}
         />
 
-        {/* Besoins en personnel — table revue_besoins_personnel */}
         <DynamicList
-          label="Besoins prioritaires en personnel"
+          label={t('steps.s3.besoinsPrio')}
           name="besoinsPrioPersonnel"
           value={data.besoinsPrioPersonnel}
           onChange={(val) => onChange({ besoinsPrioPersonnel: val })}
           showErrors={showErrors}
-          placeholder="Ex. Recrutement d'un comptable…"
+          placeholder={t('steps.s3.besoinsPrioPlaceholder')}
         />
 
-        {/* Besoins en formation — table revue_besoins_formation */}
         <DynamicList
-          label="Besoins en formation / renforcement de capacités"
+          label={t('steps.s3.besoinsFormation')}
           name="besoinsFormation"
           value={data.besoinsFormation}
           onChange={(val) => onChange({ besoinsFormation: val })}
           showErrors={showErrors}
-          placeholder="Ex. Formation en gestion de projet…"
+          placeholder={t('steps.s3.besoinsFormationPlaceholder')}
         />
 
-        {/* Difficultés RH — champ unique revue_ressources_humaines.difficultes_rh */}
-        <Field label="Principales difficultés liées aux ressources humaines" name="difficultesRH" value={data.difficultesRH} {...f} rows={3} />
+        <Field label={t('steps.s3.difficultesRH')} name="difficultesRH" value={data.difficultesRH} {...f} rows={3} />
       </FieldGroup>
     </div>
   )

@@ -1,0 +1,269 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "form": "Formulaire",
+    "analytics": "Analyses",
+    "admin": "Admin",
+    "logout": "Déconnexion",
+    "login": "Connexion",
+    "collapse": "Réduire",
+    "expand": "Ouvrir le menu",
+    "submissions": "Soumissions"
+  },
+  "submissions": {
+    "title": "Fiches soumises",
+    "scopeOwn": "Soumissions de votre direction / unité",
+    "scopeAll": "Toutes les soumissions — toutes directions",
+    "filterDirection": "Direction",
+    "filterDirectionPlaceholder": "Rechercher une direction…",
+    "filterPeriod": "Période",
+    "reset": "Réinitialiser",
+    "colDirection": "Direction",
+    "colPeriod": "Période couverte",
+    "colReunion": "Date réunion",
+    "colStatus": "Statut",
+    "colSubmitted": "Soumis le",
+    "view": "Voir",
+    "empty": "Aucune fiche trouvée",
+    "detailTitle": "Fiche de revue",
+    "reunion": "Réunion :",
+    "submitted": "Soumis le"
+  },
+  "accueil": {
+    "country": "République d'Haïti",
+    "ministry": "Ministère de l'Économie et des Finances",
+    "badge": "Outil de gestion interne — MEF",
+    "title": "Fiche Standard de",
+    "titleHighlight": "Revue des Directions",
+    "subtitle": "Plateforme centralisée de collecte et d'analyse des informations opérationnelles des directions du Ministère de l'Économie et des Finances. Chaque direction soumet mensuellement une fiche structurée permettant à la Direction Générale de suivre la performance, les ressources et les besoins de l'institution.",
+    "fillForm": "Remplir la fiche du mois",
+    "dashboard": "Tableau de bord",
+    "administration": "Administration",
+    "connect": "Se connecter",
+    "features": {
+      "guided": {
+        "title": "Saisie guidée",
+        "desc": "Formulaire en 11 étapes structuré autour des axes stratégiques : RH, locaux, équipements, communication, rapports et contraintes."
+      },
+      "analytics": {
+        "title": "Analyses & Suivi",
+        "desc": "Tableau de bord consolidé avec indicateurs de performance, comparaison inter-directions et évolution temporelle."
+      },
+      "secure": {
+        "title": "Accès sécurisé",
+        "desc": "Authentification centralisée via Keycloak avec gestion des rôles : responsables de direction, équipe DG et administrateurs."
+      }
+    },
+    "footer": "MEF — Direction Générale © {{year}} · Usage interne"
+  },
+  "form": {
+    "header": "Ministère de l'Économie et des Finances — Direction Générale",
+    "title": "Fiche Standard de Revue des Directions",
+    "subtitle": "Document administratif — MEF",
+    "step": "Étape {{current}} / {{total}}",
+    "previous": "Précédent",
+    "next": "Suivant",
+    "submit": "Soumettre la fiche",
+    "submitting": "Envoi en cours…",
+    "prefillBanner": "Certaines informations permanentes ont été pré-remplies depuis votre dernière soumission",
+    "prefillBannerTag": "pré-rempli",
+    "prefillBannerSuffix": ". Vérifiez-les et corrigez si nécessaire.",
+    "alreadySubmitted": "Soumission déjà effectuée.",
+    "alreadySubmittedDetail": "La direction <strong>{{direction}}</strong> a déjà soumis une fiche pour cette période. Une seule soumission est autorisée par période.",
+    "validationError": "Veuillez remplir tous les champs obligatoires avant de continuer. Les champs manquants sont indiqués en rouge.",
+    "submitError": "Erreur :",
+    "successTitle": "Fiche soumise avec succès",
+    "successMessage": "Votre fiche standard de revue a été enregistrée. Elle sera transmise à la Direction Générale.",
+    "fillNext": "Remplir la fiche du mois prochain"
+  },
+  "field": {
+    "required": "Ce champ est obligatoire",
+    "automatic": "automatique",
+    "prefilled": "pré-rempli",
+    "select": "Sélectionner…",
+    "search": "Rechercher…",
+    "noResult": "Aucun résultat",
+    "addEntry": "Ajouter une entrée",
+    "entryRequired": "Au moins une entrée est requise.",
+    "addCategory": "Ajouter une catégorie",
+    "categoryRequired": "Au moins une catégorie est requise.",
+    "categoryHint": "Catégorie + Effectif",
+    "remove": "Supprimer",
+    "dateFormat": "jj/mm/aaaa",
+    "yesNo": {
+      "yes": "Oui",
+      "no": "Non"
+    }
+  },
+  "steps": {
+    "s1": {
+      "title": "Identification de la Structure",
+      "notice": "À transmettre à la Direction Générale quarante-huit (48) heures avant la tenue de la réunion aux adresses : uep.mef@gmail.com, secretariatdg@mef.gouv.ht, bouco.jeanjacques@mef.gouv.ht",
+      "groupDirection": "Direction",
+      "intituleDirection": "Intitulé de la Direction / Unité",
+      "localisation": "Localisation",
+      "localisationPlaceholder": "Adresse du siège",
+      "groupResponsable": "Responsable",
+      "responsable": "Responsable",
+      "responsablePlaceholder": "Sélectionner un responsable",
+      "loading": "Chargement…",
+      "fonction": "Fonction",
+      "fonctionPlaceholder": "ex. Directeur",
+      "tel": "Coordonnées téléphoniques",
+      "telPlaceholder": "ex. +509 3700-0000",
+      "email": "Adresse électronique",
+      "emailPlaceholder": "ex. nom@mef.gouv.ht",
+      "groupReunion": "Réunion",
+      "periodeDebut": "Début de la période couverte",
+      "periodeFin": "Fin de la période couverte",
+      "dateReunion": "Date de la réunion",
+      "errDebutApresFin": "Le début de la période doit être antérieur ou égal à la fin.",
+      "errFinApresReunion": "La fin de la période doit être antérieure à la date de réunion.",
+      "errReunionAvantFin": "La date de réunion doit être postérieure à la fin de la période."
+    },
+    "s2": {
+      "title": "Mission et Attributions",
+      "missionPrincipale": "Mission principale de la structure",
+      "principalesAttributions": "Principales attributions",
+      "principauxServices": "Principaux services rendus"
+    },
+    "s3": {
+      "title": "Situation des Ressources Humaines",
+      "effectifTheorique": "Effectif théorique",
+      "effectifPoste": "Effectif en poste / Agent actif",
+      "effectifDisponible": "Effectif réellement disponible",
+      "postesVacants": "Postes vacants",
+      "repartition": "Répartition du personnel par catégorie",
+      "besoinsPrio": "Besoins prioritaires en personnel",
+      "besoinsPrioPlaceholder": "Ex. Recrutement d'un comptable…",
+      "besoinsFormation": "Besoins en formation / renforcement de capacités",
+      "besoinsFormationPlaceholder": "Ex. Formation en gestion de projet…",
+      "difficultesRH": "Principales difficultés liées aux ressources humaines"
+    },
+    "s4": {
+      "title": "État de Fonctionnement de la Structure",
+      "activitesRealisees": "Activités principales réalisées durant la période",
+      "activitesRealiseesPlaceholder": "Décrire une activité réalisée…",
+      "activitesEnCours": "Activités en cours",
+      "activitesEnCoursPlaceholder": "Décrire une activité en cours…",
+      "activitesNonRealisees": "Activités non réalisées ou partiellement réalisées",
+      "activitesNonRealiseesPlaceholder": "Décrire une activité non réalisée…",
+      "resultatsObtenus": "Résultats obtenus",
+      "resultatsObtenusPlaceholder": "Décrire un résultat obtenu…",
+      "difficultesExecution": "Difficultés ayant affecté l'exécution des activités",
+      "difficultesExecutionPlaceholder": "Décrire une difficulté rencontrée…"
+    },
+    "s5": {
+      "title": "Locaux, Infrastructures et Image Institutionnelle",
+      "locauxAdaptes": "Les locaux sont-ils adaptés aux missions de la structure ?",
+      "etatBatiments": "État général des bâtiments",
+      "niveauExiguite": "Niveau d'exiguïté ou inadéquation des espaces",
+      "etatProprete": "État de propreté et d'entretien",
+      "signaletique": "Signalétique et identification institutionnelle visibles ?",
+      "conditionsAccueil": "Conditions d'accueil du public",
+      "travauxPrioritaires": "Travaux ou améliorations prioritaires à envisager",
+      "travauxPrioritairesPlaceholder": "Ex. Réfection de la toiture…"
+    },
+    "s6": {
+      "title": "Équipements et Moyens Logistiques",
+      "mobilierBureau": "Disponibilité du mobilier de bureau",
+      "materielInformatique": "Disponibilité de matériel informatique",
+      "etatOrdinateurs": "État des ordinateurs et imprimantes",
+      "electricite": "Disponibilité d'électricité",
+      "internet": "Disponibilité d'internet",
+      "vehicules": "Disponibilité de véhicules / moyens de transport",
+      "autresEquipements": "Autres équipements essentiels",
+      "insuffisancesMaterielles": "Principales insuffisances matérielles et logistiques",
+      "insuffisancesPlaceholder": "Ex. Manque d'imprimantes…"
+    },
+    "s7": {
+      "title": "Communication, Systèmes et Dématérialisation",
+      "circulationInfo": "Niveau de circulation de l'information en interne",
+      "relationsAutresStructures": "Relations avec les autres structures du MEF",
+      "difficultesInternet": "Difficultés liées à internet, aux réseaux ou aux systèmes",
+      "outilsNumeriques": "Outils numériques utilisés",
+      "outilsNumeriquesPlaceholder": "Ex. SIGTAS, e-mail, Teams…",
+      "proceduresDematerialisees": "Procédures dématérialisées existantes",
+      "proceduresDematerialiseesPlaceholder": "Ex. Déclaration fiscale en ligne…",
+      "proceduresManuelles": "Procédures encore manuelles",
+      "proceduresManuellesPlaceholder": "Ex. Émission manuelle de reçus…",
+      "besoinsDig": "Besoins en digitalisation",
+      "besoinsDigPlaceholder": "Ex. Numérisation des archives…"
+    },
+    "s8": {
+      "title": "Production de Rapports, Statistiques et Livrables",
+      "rapportsPeriodiques": "Rapports périodiques produits ?",
+      "frequenceProduction": "Fréquence de production",
+      "frequencePlaceholder": "ex. Mensuelle, Trimestrielle…",
+      "tableauxBord": "Tableaux de bord disponibles ?",
+      "statistiquesDisponibles": "Statistiques disponibles ?",
+      "retardsRapports": "Retards ou insuffisances constatés dans la production des rapports",
+      "derniersRapports": "Derniers rapports produits",
+      "derniersRapportsPlaceholder": "Ex. Rapport mensuel de mars 2025…",
+      "principauxLivrables": "Principaux livrables réalisés",
+      "principauxLivrablesPlaceholder": "Ex. Guide de procédures…",
+      "causesRapports": "Causes des difficultés dans la production des rapports",
+      "causesRapportsPlaceholder": "Ex. Manque de données sources…"
+    },
+    "s9": {
+      "titleContraintes": "Contraintes Majeures",
+      "noticeContraintes": "Veuillez classer les trois principales contraintes de la structure (au moins la première est obligatoire) :",
+      "contrainte": "Contrainte {{n}}",
+      "contraintePlaceholder_1": "Contrainte principale…",
+      "contraintePlaceholder_2": "Deuxième contrainte…",
+      "contraintePlaceholder_3": "Troisième contrainte…",
+      "titleBesoins": "Besoins Prioritaires",
+      "noticeBesoins": "Veuillez indiquer les besoins les plus urgents à satisfaire (au moins le premier est obligatoire) :",
+      "besoin": "Besoin {{n}}",
+      "besoinPlaceholder": "Besoin prioritaire n°{{n}}…"
+    },
+    "s10": {
+      "titleMesures": "Mesures Correctives Proposées par la Direction",
+      "mesuresStructure": "Mesures pouvant être prises par la structure elle-même",
+      "mesuresDG": "Mesures nécessitant l'intervention de la Direction Générale",
+      "mesuresMinistre": "Mesures nécessitant un arbitrage du Ministre",
+      "titleAppui": "Appui Attendu de la Direction Générale",
+      "decisionsOuhaitees": "Décisions souhaitées",
+      "appuisAdmin": "Appuis administratifs demandés",
+      "appuisLogistiques": "Appuis logistiques demandés",
+      "appuisRH": "Appuis en ressources humaines demandés",
+      "appuisNumerique": "Appuis en transformation numérique demandés"
+    },
+    "s11": {
+      "titleObservations": "Observations Complémentaires",
+      "observations": "Observations complémentaires",
+      "observationsPlaceholder": "Toute observation jugée utile pour compléter la fiche…",
+      "titleSignature": "Signature",
+      "nomResponsable": "Nom du Responsable signataire",
+      "fonctionSignature": "Fonction du signataire",
+      "dateSignature": "Date de signature",
+      "signatureLabel": "Signature",
+      "signatureClear": "Effacer",
+      "signatureHint": "Dessinez votre signature dans le cadre ci-dessus.",
+      "signatureRequired": "La signature est requise.",
+      "note": "Nb. — Toutes les rubriques doivent être renseignées avec précision car les informations fournies serviront de base aux échanges lors de la réunion."
+    },
+    "labels": {
+      "I": "I. Identification",
+      "II": "II. Mission",
+      "III": "III. Ressources Humaines",
+      "IV": "IV. Fonctionnement",
+      "V": "V. Locaux",
+      "VI": "VI. Équipements",
+      "VII": "VII. Communication",
+      "VIII": "VIII. Rapports",
+      "IX_X": "IX-X. Contraintes & Besoins",
+      "XI_XII": "XI-XII. Mesures & Appui",
+      "XIII_XIV": "XIII-XIV. Observations & Signature",
+      "confirm": "XV. Confirmation"
+    }
+  },
+  "confirm": {
+    "bannerTitle": "Vérification avant soumission.",
+    "bannerBody": "Veuillez relire attentivement toutes les informations ci-dessous avant de soumettre la fiche."
+  },
+  "dashboard": {
+    "loading": "Chargement…",
+    "noData": "Aucune donnée disponible"
+  }
+}

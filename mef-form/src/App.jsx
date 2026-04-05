@@ -1,9 +1,13 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { submitRevue, checkDoublon } from './api'
 import { useKeycloak } from './keycloak'
+import LanguageSwitcher from './components/LanguageSwitcher'
 import Accueil from './pages/Accueil'
 import Dashboard from './pages/Dashboard'
 import Admin from './pages/Admin'
+import Historique from './pages/Historique'
+import Soumissions from './pages/Soumissions'
 import Step1Identification from './steps/Step1Identification'
 import Step2Mission from './steps/Step2Mission'
 import Step3RessourcesHumaines from './steps/Step3RessourcesHumaines'
@@ -15,6 +19,7 @@ import Step8Rapports from './steps/Step8Rapports'
 import Step9Contraintes from './steps/Step9Contraintes'
 import Step10Mesures from './steps/Step10Mesures'
 import Step11Signature from './steps/Step11Signature'
+import StepConfirmation from './steps/StepConfirmation'
 
 const getTodayISO = () => new Date().toISOString().split('T')[0]
 
@@ -124,6 +129,7 @@ function buildInitialData(saved = {}) {
 
     // XIV. Signature
     nomResponsable: '', fonctionSignature: '', dateSignature: getTodayISO(),
+    signatureImage: '',
   }
 
   // Restaurer les champs persistants
@@ -131,18 +137,19 @@ function buildInitialData(saved = {}) {
   return base
 }
 
-const STEPS = [
-  { id: 1,  label: 'I. Identification',                   component: Step1Identification },
-  { id: 2,  label: 'II. Mission',                         component: Step2Mission },
-  { id: 3,  label: 'III. Ressources Humaines',            component: Step3RessourcesHumaines },
-  { id: 4,  label: 'IV. Fonctionnement',                  component: Step4Fonctionnement },
-  { id: 5,  label: 'V. Locaux',                           component: Step5Locaux },
-  { id: 6,  label: 'VI. Équipements',                     component: Step6Equipements },
-  { id: 7,  label: 'VII. Communication',                  component: Step7Communication },
-  { id: 8,  label: 'VIII. Rapports',                      component: Step8Rapports },
-  { id: 9,  label: 'IX-X. Contraintes & Besoins',        component: Step9Contraintes },
-  { id: 10, label: 'XI-XII. Mesures & Appui',             component: Step10Mesures },
-  { id: 11, label: 'XIII-XIV. Observations & Signature',  component: Step11Signature },
+const STEP_COMPONENTS = [
+  { id: 1,  labelKey: 'steps.labels.I',       component: Step1Identification },
+  { id: 2,  labelKey: 'steps.labels.II',      component: Step2Mission },
+  { id: 3,  labelKey: 'steps.labels.III',     component: Step3RessourcesHumaines },
+  { id: 4,  labelKey: 'steps.labels.IV',      component: Step4Fonctionnement },
+  { id: 5,  labelKey: 'steps.labels.V',       component: Step5Locaux },
+  { id: 6,  labelKey: 'steps.labels.VI',      component: Step6Equipements },
+  { id: 7,  labelKey: 'steps.labels.VII',     component: Step7Communication },
+  { id: 8,  labelKey: 'steps.labels.VIII',    component: Step8Rapports },
+  { id: 9,  labelKey: 'steps.labels.IX_X',   component: Step9Contraintes },
+  { id: 10, labelKey: 'steps.labels.XI_XII',  component: Step10Mesures },
+  { id: 11, labelKey: 'steps.labels.XIII_XIV', component: Step11Signature },
+  { id: 12, labelKey: 'steps.labels.confirm',  component: StepConfirmation },
 ]
 
 // Valide un tableau (au moins un élément non vide)
@@ -159,7 +166,8 @@ const STEP_VALIDATORS = [
   // Step 1
   (d) => notEmpty(d.intituleDirection) && notEmpty(d.responsable) && notEmpty(d.fonction)
       && notEmpty(d.periodeDebut) && notEmpty(d.periodeFin) && notEmpty(d.dateReunion)
-      && notEmpty(d.localisation) && notEmpty(d.coordonneesTel) && notEmpty(d.adresseEmail),
+      && notEmpty(d.localisation) && notEmpty(d.coordonneesTel) && notEmpty(d.adresseEmail)
+      && d.periodeDebut <= d.periodeFin && d.periodeFin < d.dateReunion,
   // Step 2
   (d) => notEmpty(d.missionPrincipale) && notEmpty(d.principalesAttributions) && notEmpty(d.principauxServices),
   // Step 3
@@ -192,31 +200,42 @@ const STEP_VALIDATORS = [
       && notEmpty(d.decisionsOuhaitees) && notEmpty(d.appuisAdmin) && notEmpty(d.appuisLogistiques)
       && notEmpty(d.appuisRH) && notEmpty(d.appuisNumerique),
   // Step 11
-  (d) => hasItem(d.observations) && notEmpty(d.nomResponsable) && notEmpty(d.fonctionSignature) && notEmpty(d.dateSignature),
+  (d) => hasItem(d.observations) && notEmpty(d.nomResponsable) && notEmpty(d.fonctionSignature) && notEmpty(d.dateSignature) && notEmpty(d.signatureImage),
+  // Step 12 — confirmation, always valid
+  () => true,
 ]
 
 const isStepValid = (idx, data) => !!STEP_VALIDATORS[idx]?.(data)
 
 export default function App() {
+  const { t } = useTranslation()
   const { token, user, logout, login, authenticated } = useKeycloak()
+
+  const STEPS = STEP_COMPONENTS.map(s => ({ ...s, label: t(s.labelKey) }))
 
   const hasRole = (role) => user?.realm_access?.roles?.includes(role) ?? false
   const isAdmin       = hasRole('admin')
-  const isResponsable = hasRole('responsable')
+  const isResponsable = hasRole('responsable-direction')
   const isDG          = hasRole('direction-generale')
 
-  const [showAccueil, setShowAccueil]     = useState(true)
-  const [showDashboard, setShowDashboard] = useState(false)
-  const [showAdmin, setShowAdmin]         = useState(false)
+  const [showAccueil, setShowAccueil]           = useState(true)
+  const [showDashboard, setShowDashboard]       = useState(false)
+  const [showAdmin, setShowAdmin]               = useState(false)
+  const [showHistorique, setShowHistorique]     = useState(false)
+  const [showSoumissions, setShowSoumissions]   = useState(false)
   const [sidebarOpen, setSidebarOpen]     = useState(false)
 
   const goTo = (view) => {
-    if (view === 'form'      && (!authenticated || !isResponsable)) view = 'accueil'
-    if (view === 'dashboard' && (!authenticated || !isDG))          view = 'accueil'
-    if (view === 'admin'     && (!authenticated || !isAdmin))       view = 'accueil'
+    if (view === 'form'         && (!authenticated || !isResponsable))                    view = 'accueil'
+    if (view === 'dashboard'    && (!authenticated || !isDG))                             view = 'accueil'
+    if (view === 'admin'        && (!authenticated || !isAdmin))                          view = 'accueil'
+    if (view === 'historique'   && (!authenticated || (!isAdmin && !isDG)))               view = 'accueil'
+    if (view === 'soumissions'  && (!authenticated || (!isResponsable && !isDG)))         view = 'accueil'
     setShowAccueil(view === 'accueil')
     setShowDashboard(view === 'dashboard')
     setShowAdmin(view === 'admin')
+    setShowHistorique(view === 'historique')
+    setShowSoumissions(view === 'soumissions')
   }
 
   const saved    = loadSaved()
@@ -239,6 +258,18 @@ export default function App() {
       .then(({ exists }) => setAlreadySubmitted(exists))
       .catch(() => {})
   }, [formData.intituleDirection, formData.periodeDebut, formData.periodeFin])
+
+  // Auto-fill nom/fonction du responsable depuis le token Keycloak
+  useEffect(() => {
+    if (!user) return
+    const nom = user.name || [user.given_name, user.family_name].filter(Boolean).join(' ') || ''
+    const fonction = user.fonction || ''
+    setFormData(prev => ({
+      ...prev,
+      ...(nom      && { nomResponsable:   nom      }),
+      ...(fonction && { fonctionSignature: fonction }),
+    }))
+  }, [user])
 
   const updateData = (fields) => setFormData(prev => ({ ...prev, ...fields }))
 
@@ -280,15 +311,6 @@ export default function App() {
     }
   }
 
-  const handleNewForm = () => {
-    const newSaved = loadSaved()
-    setFormData(buildInitialData(newSaved))
-    setCurrentStep(0)
-    setAttempted(new Set())
-    setMaxReached(0)
-    setSubmitted(false)
-  }
-
   const handlePillClick = (idx) => {
     if (idx > maxReached) return
     setCurrentStep(idx)
@@ -303,7 +325,7 @@ export default function App() {
       <button
         onClick={() => setSidebarOpen(o => !o)}
         className="flex items-center justify-center h-12 w-full text-gray-500 hover:bg-gray-100 transition-colors border-b border-gray-200 shrink-0"
-        title={sidebarOpen ? 'Réduire' : 'Ouvrir le menu'}
+        title={sidebarOpen ? t('nav.collapse') : t('nav.expand')}
       >
         {sidebarOpen ? (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -318,53 +340,80 @@ export default function App() {
       <nav className="flex flex-col flex-1 pt-2 overflow-hidden">
         <button
           onClick={() => goTo('accueil')}
-          title="Accueil"
+          title={t('nav.home')}
           className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${showAccueil ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-100'}`}
         >
           <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
           </svg>
-          {sidebarOpen && 'Accueil'}
+          {sidebarOpen && t('nav.home')}
         </button>
         {authenticated && isResponsable && (
           <button
             onClick={() => goTo('form')}
-            title="Formulaire"
-            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${!showAccueil && !showDashboard && !showAdmin ? 'bg-green-50 text-green-900' : 'text-gray-700 hover:bg-gray-100'}`}
+            title={t('nav.form')}
+            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${!showAccueil && !showDashboard && !showAdmin && !showHistorique ? 'bg-green-50 text-green-900' : 'text-gray-700 hover:bg-gray-100'}`}
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            {sidebarOpen && 'Formulaire'}
+            {sidebarOpen && t('nav.form')}
+          </button>
+        )}
+        {authenticated && (isResponsable || isDG) && (
+          <button
+            onClick={() => goTo('soumissions')}
+            title={t('nav.submissions')}
+            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${showSoumissions ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            {sidebarOpen && t('nav.submissions')}
           </button>
         )}
         {authenticated && isDG && (
           <button
             onClick={() => goTo('dashboard')}
-            title="Analyses"
+            title={t('nav.analytics')}
             className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${showDashboard ? 'bg-blue-50 text-blue-900' : 'text-blue-800 hover:bg-blue-50'}`}
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
-            {sidebarOpen && 'Analyses'}
+            {sidebarOpen && t('nav.analytics')}
           </button>
         )}
         {authenticated && isAdmin && (
           <button
             onClick={() => goTo('admin')}
-            title="Admin"
+            title={t('nav.admin')}
             className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${showAdmin ? 'bg-gray-100 text-gray-900' : 'text-gray-700 hover:bg-gray-100'}`}
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            {sidebarOpen && 'Admin'}
+            {sidebarOpen && t('nav.admin')}
+          </button>
+        )}
+        {authenticated && (isAdmin || isDG) && (
+          <button
+            onClick={() => goTo('historique')}
+            title="Historique"
+            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${showHistorique ? 'bg-purple-50 text-purple-900' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+            </svg>
+            {sidebarOpen && 'Historique'}
           </button>
         )}
       </nav>
       <div className="border-t border-gray-200 p-2 shrink-0">
+        <div className={`mb-2 ${sidebarOpen ? 'flex justify-center' : 'flex flex-col items-center'}`}>
+          <LanguageSwitcher collapsed={!sidebarOpen} />
+        </div>
         {authenticated ? (
           <div className="flex flex-col gap-1">
             {sidebarOpen && (
@@ -374,25 +423,25 @@ export default function App() {
             )}
             <button
               onClick={logout}
-              title="Déconnexion"
+              title={t('nav.logout')}
               className="flex items-center gap-3 px-2 py-2 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors text-sm whitespace-nowrap w-full"
             >
               <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
-              {sidebarOpen && 'Déconnexion'}
+              {sidebarOpen && t('nav.logout')}
             </button>
           </div>
         ) : (
           <button
             onClick={login}
-            title="Connexion"
+            title={t('nav.login')}
             className="flex items-center gap-3 px-2 py-2 rounded-lg bg-blue-800 text-white hover:bg-blue-900 transition-colors text-sm font-medium whitespace-nowrap w-full"
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
             </svg>
-            {sidebarOpen && 'Connexion'}
+            {sidebarOpen && t('nav.login')}
           </button>
         )}
       </div>
@@ -446,6 +495,42 @@ export default function App() {
     )
   )
 
+  if (showHistorique) return (
+    (isAdmin || isDG) ? (
+      <div className="min-h-screen bg-gray-50 flex">
+        {sidebar}
+        <div className={`flex-1 ${mainOffset}`}>
+          <Historique />
+        </div>
+      </div>
+    ) : (
+      <div className="min-h-screen bg-gray-50 flex">
+        {sidebar}
+        <div className={`flex-1 ${mainOffset}`}>
+          <Accueil onNavigate={goTo} authenticated={authenticated} onLogin={login} user={user} />
+        </div>
+      </div>
+    )
+  )
+
+  if (showSoumissions) return (
+    (isResponsable || isDG) ? (
+      <div className="min-h-screen bg-gray-50 flex">
+        {sidebar}
+        <div className={`flex-1 ${mainOffset}`}>
+          <Soumissions user={user} />
+        </div>
+      </div>
+    ) : (
+      <div className="min-h-screen bg-gray-50 flex">
+        {sidebar}
+        <div className={`flex-1 ${mainOffset}`}>
+          <Accueil onNavigate={goTo} authenticated={authenticated} onLogin={login} user={user} />
+        </div>
+      </div>
+    )
+  )
+
   if (!authenticated || !isResponsable) return (
     <div className="min-h-screen bg-gray-50 flex">
       {sidebar}
@@ -455,27 +540,10 @@ export default function App() {
     </div>
   )
 
-  if (submitted) return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {sidebar}
-      <div className={`flex-1 flex items-center justify-center p-4 ${mainOffset}`}>
-        <div className="bg-white rounded-xl shadow-lg p-10 text-center max-w-md w-full">
-          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Fiche soumise avec succès</h2>
-          <p className="text-gray-500 mb-6">
-            Votre fiche standard de revue a été enregistrée. Elle sera transmise à la Direction Générale.
-          </p>
-          <button onClick={handleNewForm} className="bg-blue-800 text-white px-6 py-2 rounded-lg hover:bg-blue-900 transition-colors">
-            Remplir la fiche du mois prochain
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  if (submitted) {
+    goTo('soumissions')
+    return null
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
@@ -485,12 +553,12 @@ export default function App() {
       <header className="bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-4xl mx-auto px-4 py-3 text-center">
           <p className="text-xs font-bold text-blue-900 uppercase tracking-widest">
-            Ministère de l&apos;Économie et des Finances — Direction Générale
+            {t('form.header')}
           </p>
           <h1 className="text-xl md:text-2xl font-extrabold text-gray-900 mt-0.5">
-            Fiche Standard de Revue des Directions
+            {t('form.title')}
           </h1>
-          <p className="text-xs text-gray-400 italic">Document administratif — MEF</p>
+          <p className="text-xs text-gray-400 italic">{t('form.subtitle')}</p>
         </div>
       </header>
 
@@ -501,9 +569,9 @@ export default function App() {
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
             </svg>
             <p className="text-sm text-teal-800">
-              Certaines informations permanentes ont été pré-remplies depuis votre dernière soumission
-              <span className="ml-1 inline-flex items-center gap-1 bg-teal-100 text-teal-700 text-xs font-semibold px-1.5 py-0.5 rounded">pré-rempli</span>.
-              Vérifiez-les et corrigez si nécessaire.
+              {t('form.prefillBanner')}
+              <span className="ml-1 inline-flex items-center gap-1 bg-teal-100 text-teal-700 text-xs font-semibold px-1.5 py-0.5 rounded">{t('form.prefillBannerTag')}</span>
+              {t('form.prefillBannerSuffix')}
             </p>
           </div>
         )}
@@ -514,8 +582,8 @@ export default function App() {
               <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             <p className="text-sm text-amber-800">
-              <strong>Soumission déjà effectuée.</strong>{' '}
-              La direction <strong>{formData.intituleDirection}</strong> a déjà soumis une fiche pour cette période. Une seule soumission est autorisée par période.
+              <strong>{t('form.alreadySubmitted')}</strong>{' '}
+              <span dangerouslySetInnerHTML={{ __html: t('form.alreadySubmittedDetail', { direction: formData.intituleDirection }) }} />
             </p>
           </div>
         )}
@@ -523,7 +591,7 @@ export default function App() {
         {/* Progress bar */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-sm font-medium text-gray-500">Étape {currentStep + 1} / {STEPS.length}</span>
+            <span className="text-sm font-medium text-gray-500">{t('form.step', { current: currentStep + 1, total: STEPS.length })}</span>
             <span className="text-sm font-semibold text-blue-800">{Math.round(((currentStep + 1) / STEPS.length) * 100)}%</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -571,9 +639,7 @@ export default function App() {
             <svg className="w-5 h-5 text-red-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            <p className="text-sm text-red-700">
-              Veuillez remplir tous les champs obligatoires avant de continuer. Les champs manquants sont indiqués en rouge.
-            </p>
+            <p className="text-sm text-red-700">{t('form.validationError')}</p>
           </div>
         )}
 
@@ -582,7 +648,7 @@ export default function App() {
             <svg className="w-5 h-5 text-red-600 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
-            <p className="text-sm text-red-700"><strong>Erreur :</strong> {submitError}</p>
+            <p className="text-sm text-red-700"><strong>{t('form.submitError')}</strong> {submitError}</p>
           </div>
         )}
 
@@ -594,6 +660,8 @@ export default function App() {
             savedFields={savedFields}
             onDirectionSelect={resetForDirection}
             directionFields={directionFields}
+            userDirectionId={user?.direction_id || null}
+            currentUser={user || null}
           />
         </div>
 
@@ -606,7 +674,7 @@ export default function App() {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
-            Précédent
+            {t('form.previous')}
           </button>
 
           {currentStep < STEPS.length - 1 ? (
@@ -614,7 +682,7 @@ export default function App() {
               onClick={handleNext}
               className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-800 text-white hover:bg-blue-900 transition-colors font-medium"
             >
-              Suivant
+              {t('form.next')}
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
@@ -631,11 +699,11 @@ export default function App() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                   </svg>
-                  Envoi en cours…
+                  {t('form.submitting')}
                 </>
               ) : (
                 <>
-                  Soumettre la fiche
+                  {t('form.submit')}
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
@@ -662,7 +730,7 @@ export default function App() {
             +261 20 00 000 00
           </a>
           <span className="text-gray-300">|</span>
-          <span>MEF — Direction Générale &copy; {new Date().getFullYear()}</span>
+          <span>MEF — Direction Générale © {new Date().getFullYear()}</span>
         </div>
       </footer>
       </div>

@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
 } from 'recharts'
 import {
-  fetchOverview, fetchParDirection, fetchParMois, fetchLocaux, fetchRapports,
-  fetchParPeriode, fetchEffectifs, fetchEquipements, fetchDirections,
+  fetchOverview, fetchParMois, fetchEffectifs, fetchDirections,
   fetchConformite, fetchPostesVacants, fetchBesoinFormation,
   fetchActivitesNonRealisees, fetchDifficultesActivites, fetchInfraIndicateurs,
-  fetchInsuffisances, fetchContraintes, fetchAppuis, fetchActions,
+  fetchInsuffisancesHeatmap, fetchContraintes, fetchAppuis, fetchActions,
+  fetchLocaux, fetchEquipements,
 } from '../api'
 import { useKeycloak } from '../keycloak'
 
@@ -25,14 +25,37 @@ const C = {
   teal:      '#0d9488',
   orange:    '#ea580c',
 }
-const PIE_YES_NO = { Oui: C.green, Non: C.red }
-const PIE_COLORS = [C.blue, C.cyan, C.green, C.amber, C.purple, C.slate, C.red, C.teal, C.orange]
-const STATUT_COLORS = { soumis: C.green, valide: C.blue, brouillon: C.amber }
+const PIE_YES_NO   = { Oui: C.green, Non: C.red }
+const PIE_COLORS   = [C.blue, C.cyan, C.green, C.amber, C.purple, C.slate, C.red, C.teal, C.orange]
+const STATUT_COLOR = { soumis: C.green, valide: C.blue, brouillon: C.red, 'Sans revue': C.amber }
+const STATUT_LABEL = { soumis: 'Soumises', valide: 'Validées', brouillon: 'En retard', 'Sans revue': 'En attente' }
+
+const CY = new Date().getFullYear()
+const YEARS     = [CY, CY - 1, CY - 2, CY - 3]
+const QUARTERS  = [{ v: '1', l: 'T1 (Jan–Mar)' }, { v: '2', l: 'T2 (Avr–Juin)' }, { v: '3', l: 'T3 (Juil–Sep)' }, { v: '4', l: 'T4 (Oct–Déc)' }]
+
+// ── CSV export utility ─────────────────────────────────────────────────────
+function downloadCSV(columns, rows, filename) {
+  const esc = v => {
+    const s = String(v ?? '').replace(/"/g, '""')
+    return /[,\n"]/.test(s) ? `"${s}"` : s
+  }
+  const lines = [
+    columns.map(c => esc(c.label)).join(','),
+    ...rows.map(r => columns.map(c => esc(typeof c.value === 'function' ? c.value(r) : r[c.key])).join(',')),
+  ]
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' })
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: filename })
+  a.click()
+  URL.revokeObjectURL(a.href)
+}
+
 const SHORT_DIR = (s) =>
-  s.replace('Direction ', 'Dir. ')
-   .replace('Générale', 'Gén.')
-   .replace(' et de la ', ' & ')
-   .replace("l'Information et de la Communication", 'TIC')
+  (s || '')
+    .replace('Direction ', 'Dir. ')
+    .replace('Générale', 'Gén.')
+    .replace(' et de la ', ' & ')
+    .replace("l'Information et de la Communication", 'TIC')
 
 // ── Shared components ──────────────────────────────────────────────────────
 function StatCard({ label, value, sub, color = 'blue', badge }) {
@@ -119,7 +142,7 @@ function TagCloud({ data, textKey = 'contrainte' }) {
       {data.map((d, i) => {
         const ratio = d.total / max
         const fontSize = `${0.72 + ratio * 0.9}rem`
-        const opacity = 0.55 + ratio * 0.45
+        const opacity  = 0.55 + ratio * 0.45
         return (
           <span
             key={i}
@@ -135,14 +158,101 @@ function TagCloud({ data, textKey = 'contrainte' }) {
   )
 }
 
+// Heat map: rows = directions, columns = insuffisance types
+function HeatMap({ data }) {
+  if (!data?.length) return <Empty />
+
+  // Top 8 insuffisance types by total mentions
+  const totByInsuff = {}
+  data.forEach(d => { totByInsuff[d.insuffisance] = (totByInsuff[d.insuffisance] || 0) + d.total })
+  const types = Object.keys(totByInsuff).sort((a, b) => totByInsuff[b] - totByInsuff[a]).slice(0, 8)
+
+  // Top 12 directions by number of distinct insuffisances reported
+  const totByDir = {}
+  data.forEach(d => { totByDir[d.direction] = (totByDir[d.direction] || 0) + d.total })
+  const dirs = Object.keys(totByDir).sort((a, b) => totByDir[b] - totByDir[a]).slice(0, 12)
+
+  if (!dirs.length || !types.length) return <Empty />
+
+  const lookup = {}
+  data.forEach(d => { lookup[`${d.direction}|||${d.insuffisance}`] = d.total })
+  const maxVal = Math.max(...data.map(d => d.total), 1)
+
+  const cellBg = (count) => {
+    if (!count) return '#f8fafc'
+    const t = Math.min(count / maxVal, 1)
+    return `rgba(185, 28, 28, ${0.12 + t * 0.88})`
+  }
+  const cellTxt = (count) => {
+    if (!count) return 'transparent'
+    return count / maxVal > 0.45 ? 'white' : '#7f1d1d'
+  }
+
+  return (
+    <div className="overflow-auto">
+      <table className="text-xs min-w-max border-separate" style={{ borderSpacing: '3px' }}>
+        <thead>
+          <tr>
+            <th className="text-left align-bottom pb-2 pr-4 text-gray-400 font-normal min-w-[130px]">Direction</th>
+            {types.map(t => (
+              <th key={t} className="text-center align-bottom pb-2 px-0.5 min-w-[56px]">
+                <div
+                  style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)', maxHeight: 90, fontSize: '0.65rem', overflow: 'hidden' }}
+                  className="font-semibold text-gray-600 mx-auto"
+                  title={t}
+                >
+                  {t.length > 20 ? t.slice(0, 20) + '…' : t}
+                </div>
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {dirs.map(dir => (
+            <tr key={dir}>
+              <td className="pr-4 py-0.5 text-gray-700 font-medium whitespace-nowrap">{SHORT_DIR(dir)}</td>
+              {types.map(t => {
+                const count = lookup[`${dir}|||${t}`] || 0
+                return (
+                  <td key={t} className="py-0.5 text-center">
+                    <div
+                      className="w-12 h-7 rounded flex items-center justify-center font-bold mx-auto"
+                      style={{ backgroundColor: cellBg(count), color: cellTxt(count), fontSize: '0.65rem' }}
+                      title={`${dir} — ${t}: ${count || 'aucune'} mention(s)`}
+                    >
+                      {count > 0 ? count : ''}
+                    </div>
+                  </td>
+                )
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
+        <span>Faible</span>
+        <div className="flex gap-1">
+          {[0.1, 0.3, 0.5, 0.7, 0.9].map((v, i) => (
+            <div key={i} className="w-6 h-4 rounded-sm" style={{ backgroundColor: `rgba(185, 28, 28, ${0.12 + v * 0.88})` }} />
+          ))}
+        </div>
+        <span>Élevé</span>
+        <span className="ml-3 text-gray-300">|</span>
+        <div className="w-6 h-4 rounded-sm bg-slate-100 border border-slate-200" />
+        <span>Aucune mention</span>
+      </div>
+    </div>
+  )
+}
+
 // Appuis cards grouped by category
 function AppuisCards({ data }) {
   if (!data?.length) return <Empty />
   const categories = [
-    { key: 'administratifs', label: 'Administratifs', color: 'bg-blue-50 border-blue-200 text-blue-800' },
-    { key: 'logistiques',    label: 'Logistiques',    color: 'bg-amber-50 border-amber-200 text-amber-800' },
+    { key: 'administratifs', label: 'Administratifs',      color: 'bg-blue-50 border-blue-200 text-blue-800' },
+    { key: 'logistiques',    label: 'Logistiques',         color: 'bg-amber-50 border-amber-200 text-amber-800' },
     { key: 'rh',             label: 'Ressources humaines', color: 'bg-green-50 border-green-200 text-green-800' },
-    { key: 'numerique',      label: 'Numérique',      color: 'bg-purple-50 border-purple-200 text-purple-800' },
+    { key: 'numerique',      label: 'Numérique',           color: 'bg-purple-50 border-purple-200 text-purple-800' },
     { key: 'decisions',      label: 'Décisions souhaitées', color: 'bg-cyan-50 border-cyan-200 text-cyan-800' },
   ]
   return (
@@ -168,6 +278,68 @@ function AppuisCards({ data }) {
   )
 }
 
+// Export dropdown menu
+function ExportMenu({ items }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const close = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+
+  return (
+    <div className="relative print:hidden" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="flex items-center gap-1.5 text-sm font-semibold bg-blue-700 text-white px-3 py-1.5 rounded-lg hover:bg-blue-800 transition-colors shadow-sm"
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        Exporter
+        <svg className="w-3 h-3 opacity-70" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 bg-white shadow-xl rounded-xl border border-gray-200 z-30 min-w-56 py-1 overflow-hidden">
+          {items.map((item, i) => (
+            <button
+              key={i}
+              onClick={() => { item.action(); setOpen(false) }}
+              className={`w-full text-left px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors flex items-center gap-3 ${item.divider ? 'border-t border-gray-100 mt-1 pt-3' : ''}`}
+            >
+              <span className="text-base w-5 text-center shrink-0">{item.icon}</span>
+              <span className={item.primary ? 'font-semibold text-gray-800' : 'text-gray-600'}>{item.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// FilterSelect — petit composant réutilisable pour les selects du header
+function FilterSelect({ id, label, value, onChange, children }) {
+  return (
+    <div className="flex items-center gap-2">
+      <label htmlFor={id} className="text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+        {label}
+      </label>
+      <select
+        id={id}
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
+      >
+        {children}
+      </select>
+    </div>
+  )
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────
 export default function Dashboard() {
   const { token } = useKeycloak()
@@ -175,9 +347,9 @@ export default function Dashboard() {
   const [error, setError]     = useState(null)
 
   // Section 1
-  const [overview, setOverview]         = useState(null)
-  const [conformite, setConformite]     = useState(null)
-  const [parMois, setParMois]           = useState([])
+  const [overview, setOverview]     = useState(null)
+  const [conformite, setConformite] = useState(null)
+  const [parMois, setParMois]       = useState([])
 
   // Section 2
   const [effectifs, setEffectifs]             = useState([])
@@ -185,25 +357,27 @@ export default function Dashboard() {
   const [postesVacants, setPostesVacants]     = useState([])
 
   // Section 3
-  const [activitesNR, setActivitesNR]         = useState([])
-  const [difficultesAct, setDifficultesAct]   = useState([])
+  const [activitesNR, setActivitesNR]       = useState([])
+  const [difficultesAct, setDifficultesAct] = useState([])
 
   // Section 4
-  const [infraIndicateurs, setInfraIndicateurs] = useState([])
-  const [insuffisances, setInsuffisances]       = useState([])
-  const [locaux, setLocaux]                     = useState([])
-  const [equipements, setEquipements]           = useState({ internet: [], electricite: [] })
+  const [infraIndicateurs, setInfraIndicateurs]   = useState([])
+  const [insHeatmap, setInsHeatmap]               = useState([])
+  const [locaux, setLocaux]                       = useState([])
+  const [equipements, setEquipements]             = useState({ internet: [], electricite: [] })
 
   // Section 5
   const [contraintes, setContraintes] = useState([])
   const [appuis, setAppuis]           = useState([])
 
   // Section 6
-  const [actions, setActions]         = useState([])
+  const [actions, setActions] = useState([])
 
-  // Filter
+  // Filters
   const [directions, setDirections]   = useState([])
   const [selectedDir, setSelectedDir] = useState('')
+  const [selectedAnnee, setSelectedAnnee] = useState('')
+  const [selectedTrim, setSelectedTrim]   = useState('')
 
   useEffect(() => {
     fetchDirections()
@@ -211,27 +385,36 @@ export default function Dashboard() {
       .catch(() => {})
   }, [])
 
+  // Reset trimestre if année is cleared
+  useEffect(() => {
+    if (!selectedAnnee) setSelectedTrim('')
+  }, [selectedAnnee])
+
   useEffect(() => {
     setLoading(true)
-    const dir = selectedDir || null
+    const f = {
+      dir:   selectedDir   || null,
+      annee: selectedAnnee || null,
+      trim:  selectedTrim  || null,
+    }
     Promise.all([
-      fetchOverview(token, dir),
-      fetchConformite(token, dir),
-      fetchParMois(token, dir),
-      fetchEffectifs(token, dir),
-      fetchBesoinFormation(token, dir),
-      fetchPostesVacants(token, dir),
-      fetchActivitesNonRealisees(token, dir),
-      fetchDifficultesActivites(token, dir),
-      fetchInfraIndicateurs(token, dir),
-      fetchInsuffisances(token, dir),
-      fetchLocaux(token, dir),
-      fetchEquipements(token, dir),
-      fetchContraintes(token, dir),
-      fetchAppuis(token, dir),
-      fetchActions(token, dir),
+      fetchOverview(token, f),
+      fetchConformite(token, f),
+      fetchParMois(token, f),
+      fetchEffectifs(token, f),
+      fetchBesoinFormation(token, f),
+      fetchPostesVacants(token, f),
+      fetchActivitesNonRealisees(token, f),
+      fetchDifficultesActivites(token, f),
+      fetchInfraIndicateurs(token, f),
+      fetchInsuffisancesHeatmap(token, f),
+      fetchLocaux(token, f),
+      fetchEquipements(token, f),
+      fetchContraintes(token, f),
+      fetchAppuis(token, f),
+      fetchActions(token, f),
     ])
-      .then(([ov, conf, mois, eff, bf, pv, anr, da, ii, ins, loc, eq, cnt, app, act]) => {
+      .then(([ov, conf, mois, eff, bf, pv, anr, da, ii, hm, loc, eq, cnt, app, act]) => {
         setOverview(ov)
         setConformite(conf)
         setParMois(mois)
@@ -241,7 +424,7 @@ export default function Dashboard() {
         setActivitesNR(anr)
         setDifficultesAct(da)
         setInfraIndicateurs(ii)
-        setInsuffisances(ins)
+        setInsHeatmap(hm)
         setLocaux(loc)
         setEquipements(eq)
         setContraintes(cnt)
@@ -250,14 +433,116 @@ export default function Dashboard() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [token, selectedDir])
+  }, [token, selectedDir, selectedAnnee, selectedTrim])
 
   const tauxConformite = conformite
     ? Math.round((conformite.avecRevue / (conformite.totalDirections || 1)) * 100)
     : null
 
+  // Conformité chart data: statuts from DB + synthetic "Sans revue" bar
+  const parStatutFull = conformite ? [
+    ...conformite.parStatut.map(d => ({
+      label: STATUT_LABEL[d.statut] ?? d.statut.charAt(0).toUpperCase() + d.statut.slice(1),
+      total: d.total,
+      _statut: d.statut,
+    })),
+    ...(conformite.sansRevue > 0 ? [{
+      label: 'En attente',
+      total: conformite.sansRevue,
+      _statut: 'Sans revue',
+    }] : []),
+  ] : []
+
+  const hasActiveFilter = selectedDir || selectedAnnee
+
+  const suffix = [selectedAnnee, selectedTrim ? `T${selectedTrim}` : '', selectedDir ? selectedDir.slice(0, 10) : '']
+    .filter(Boolean).join('_') || 'tout'
+
+  const exportItems = [
+    {
+      label: 'Imprimer / Exporter PDF',
+      icon: '🖨',
+      primary: true,
+      action: () => window.print(),
+    },
+    {
+      label: 'Conformité — statuts (CSV)',
+      icon: '📊',
+      divider: true,
+      action: () => downloadCSV(
+        [{ label: 'Statut', key: 'label' }, { label: 'Total', key: 'total' }],
+        parStatutFull,
+        `conformite_${suffix}.csv`
+      ),
+    },
+    {
+      label: 'Effectifs par direction (CSV)',
+      icon: '👥',
+      action: () => downloadCSV(
+        [
+          { label: 'Direction', key: 'direction' },
+          { label: 'Effectif théorique', key: 'theorique' },
+          { label: 'Effectif disponible', key: 'disponible' },
+          { label: 'Écart', value: r => r.theorique - r.disponible },
+        ],
+        effectifs,
+        `effectifs_${suffix}.csv`
+      ),
+    },
+    {
+      label: 'Postes vacants (CSV)',
+      icon: '🏢',
+      action: () => downloadCSV(
+        [{ label: 'Direction', key: 'direction' }, { label: 'Postes vacants', key: 'postesVacants' }],
+        postesVacants,
+        `postes_vacants_${suffix}.csv`
+      ),
+    },
+    {
+      label: 'Activités non réalisées (CSV)',
+      icon: '📉',
+      action: () => downloadCSV(
+        [{ label: 'Direction', key: 'direction' }, { label: 'Nb activités', key: 'total' }],
+        activitesNR,
+        `activites_non_realisees_${suffix}.csv`
+      ),
+    },
+    {
+      label: 'Contraintes majeures (CSV)',
+      icon: '⚠️',
+      action: () => downloadCSV(
+        [{ label: 'Contrainte', key: 'contrainte' }, { label: 'Fréquence', key: 'total' }],
+        contraintes,
+        `contraintes_${suffix}.csv`
+      ),
+    },
+    {
+      label: 'Actions & mesures DG/Ministre (CSV)',
+      icon: '📋',
+      action: () => downloadCSV(
+        [
+          { label: 'Direction', key: 'direction' },
+          { label: 'Date réunion', value: r => r.dateReunion ? new Date(r.dateReunion).toLocaleDateString('fr-FR') : '' },
+          { label: 'Mesures — DG', key: 'mesuresDG' },
+          { label: 'Mesures — Ministre', key: 'mesuresMinistre' },
+        ],
+        actions,
+        `actions_mesures_${suffix}.csv`
+      ),
+    },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50">
+      <style>{`
+        @media print {
+          aside, nav, .print\\:hidden { display: none !important; }
+          header { position: static !important; box-shadow: none !important; border-bottom: 1px solid #e5e7eb !important; }
+          body { background: white !important; }
+          .bg-gray-50 { background: white !important; }
+          section { page-break-inside: avoid; }
+        }
+      `}</style>
       {/* Header */}
       <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 py-4 flex flex-wrap items-center gap-3 justify-between">
@@ -266,38 +551,56 @@ export default function Dashboard() {
             <h1 className="text-xl font-extrabold text-gray-900">Tableau de bord analytique</h1>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2">
-              <label htmlFor="dir-filter" className="text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
-                Direction
-              </label>
-              <select
-                id="dir-filter"
-                value={selectedDir}
-                onChange={e => setSelectedDir(e.target.value)}
-                className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-xs"
-              >
-                <option value="">Toutes les directions</option>
-                {directions.map(nom => (
-                  <option key={nom} value={nom}>{nom}</option>
-                ))}
-              </select>
-              {selectedDir && (
-                <button onClick={() => setSelectedDir('')} className="text-xs text-gray-400 hover:text-gray-600 transition" title="Réinitialiser">✕</button>
-              )}
-            </div>
+          <div className="flex items-center gap-3 flex-wrap print:hidden">
+            {/* Direction filter */}
+            <FilterSelect id="dir-filter" label="Direction" value={selectedDir} onChange={setSelectedDir}>
+              <option value="">Toutes les directions</option>
+              {directions.map(nom => (
+                <option key={nom} value={nom}>{nom}</option>
+              ))}
+            </FilterSelect>
 
+            {/* Année filter */}
+            <FilterSelect id="annee-filter" label="Année" value={selectedAnnee} onChange={setSelectedAnnee}>
+              <option value="">Toutes les années</option>
+              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+            </FilterSelect>
+
+            {/* Trimestre filter (only when année selected) */}
+            {selectedAnnee && (
+              <FilterSelect id="trim-filter" label="Trimestre" value={selectedTrim} onChange={setSelectedTrim}>
+                <option value="">Tous les trimestres</option>
+                {QUARTERS.map(q => <option key={q.v} value={q.v}>{q.l}</option>)}
+              </FilterSelect>
+            )}
+
+            {hasActiveFilter && (
+              <button
+                onClick={() => { setSelectedDir(''); setSelectedAnnee(''); setSelectedTrim('') }}
+                className="text-xs text-gray-400 hover:text-red-500 transition font-semibold border border-gray-200 rounded px-2 py-1"
+                title="Effacer tous les filtres"
+              >
+                ✕ Réinitialiser
+              </button>
+            )}
+
+            <ExportMenu items={exportItems} />
           </div>
         </div>
 
-        {selectedDir && (
-          <div className="max-w-7xl mx-auto px-4 pb-2">
-            <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.553.894l-4 2A1 1 0 016 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clipRule="evenodd" />
-              </svg>
-              Filtré : {selectedDir}
-            </span>
+        {hasActiveFilter && (
+          <div className="max-w-7xl mx-auto px-4 pb-2 flex flex-wrap gap-2">
+            {selectedDir && (
+              <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
+                Direction : {selectedDir}
+              </span>
+            )}
+            {selectedAnnee && (
+              <span className="inline-flex items-center gap-1.5 bg-indigo-100 text-indigo-800 text-xs font-semibold px-3 py-1 rounded-full">
+                Année : {selectedAnnee}
+                {selectedTrim && ` — ${QUARTERS.find(q => q.v === selectedTrim)?.l}`}
+              </span>
+            )}
           </div>
         )}
       </header>
@@ -324,7 +627,7 @@ export default function Dashboard() {
             <StatCard
               label="Total des revues"
               value={overview?.total}
-              sub="depuis le début"
+              sub="dans la sélection"
               color="blue"
             />
             <StatCard
@@ -350,21 +653,19 @@ export default function Dashboard() {
             />
           </div>
 
-          {/* Statut des revues + évolution mensuelle */}
+          {/* Statut des soumissions (Soumises / Validées / Brouillons / Sans revue) + évolution mensuelle */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ChartCard title="Statut des soumissions" loading={loading}>
-              {conformite?.parStatut?.length ? (
+              {parStatutFull.length ? (
                 <ResponsiveContainer width="100%" height={220}>
-                  <BarChart
-                    data={conformite.parStatut.map(d => ({ ...d, label: d.statut.charAt(0).toUpperCase() + d.statut.slice(1) }))}
-                    margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                  <BarChart data={parStatutFull} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => [`${v} revue(s)`, 'Total']} />
+                    <Tooltip formatter={(v) => [`${v} revue(s) / direction(s)`, 'Total']} />
                     <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                      {conformite.parStatut.map((d, i) => (
-                        <Cell key={i} fill={STATUT_COLORS[d.statut] ?? C.slate} />
+                      {parStatutFull.map((d, i) => (
+                        <Cell key={i} fill={STATUT_COLOR[d._statut] ?? C.slate} />
                       ))}
                     </Bar>
                   </BarChart>
@@ -395,10 +696,9 @@ export default function Dashboard() {
           <SectionHeader
             number="2"
             title="Ressources humaines"
-            description="Écart effectifs, besoins en formation, postes vacants"
+            description="Écart effectifs théorique / disponible, top 5 besoins en formation, postes vacants"
           />
 
-          {/* Effectifs chart */}
           <ChartCard title="Effectif théorique vs réellement disponible par direction" loading={loading}>
             {effectifs.length ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -421,7 +721,6 @@ export default function Dashboard() {
           </ChartCard>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Top 5 besoins en formation */}
             <ChartCard title="Top 5 besoins en formation" loading={loading}>
               {besoinFormation.length ? (
                 <ResponsiveContainer width="100%" height={220}>
@@ -439,7 +738,6 @@ export default function Dashboard() {
               ) : <Empty />}
             </ChartCard>
 
-            {/* Postes vacants */}
             <ChartCard title="Postes vacants par direction" loading={loading}>
               {postesVacants.length ? (
                 <div className="overflow-auto max-h-56">
@@ -474,28 +772,43 @@ export default function Dashboard() {
           <SectionHeader
             number="3"
             title="Suivi des activités et des performances"
-            description="Activités non réalisées par direction, fréquence des difficultés"
+            description="Activités non réalisées par direction, fréquence des difficultés signalées"
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard title="Activités non réalisées par direction (top 10)" loading={loading}>
+            <ChartCard title="Activités non réalisées ou partiellement réalisées — par direction (top 10)" loading={loading}>
               {activitesNR.length ? (
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={activitesNR.map(d => ({ ...d, dir: SHORT_DIR(d.direction) }))}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 140, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="dir" tick={{ fontSize: 10 }} width={140} />
-                    <Tooltip
-                      formatter={(v) => [`${v} activité(s)`, 'Non réalisées']}
-                      labelFormatter={(l) => activitesNR.find(d => SHORT_DIR(d.direction) === l)?.direction ?? l}
-                    />
-                    <Bar dataKey="total" fill={C.red} radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : <Empty />}
+                <div className="overflow-auto max-h-72">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-xs text-gray-500 uppercase border-b border-gray-100 bg-gray-50">
+                        <th className="text-left py-2 px-3 font-semibold">Direction</th>
+                        <th className="text-right py-2 px-3 font-semibold">Activités concernées</th>
+                        <th className="py-2 px-3 font-semibold w-32">Niveau</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {activitesNR.map((d, i) => {
+                        const max = activitesNR[0]?.total || 1
+                        const pct = Math.round((d.total / max) * 100)
+                        return (
+                          <tr key={i} className="border-b border-gray-50 hover:bg-red-50/40">
+                            <td className="py-2 px-3 text-gray-700 text-xs" title={d.direction}>{d.direction}</td>
+                            <td className="py-2 px-3 text-right font-bold text-red-600 text-xs">{d.total}</td>
+                            <td className="py-2 px-3">
+                              <div className="w-full bg-gray-100 rounded-full h-1.5">
+                                <div className="bg-red-500 h-1.5 rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-green-600 text-center py-10 font-medium">Aucune activité non réalisée signalée</p>
+              )}
             </ChartCard>
 
             <ChartCard title="Difficultés affectant l'exécution des activités" loading={loading}>
@@ -524,7 +837,7 @@ export default function Dashboard() {
           <SectionHeader
             number="4"
             title="État des infrastructures et de la logistique"
-            description="Indicateurs clés d'infrastructure, insuffisances matérielles signalées"
+            description="Indicateurs clés d'infrastructure, carte de chaleur des insuffisances signalées par direction"
           />
 
           {/* Infra indicators horizontal bar */}
@@ -549,39 +862,22 @@ export default function Dashboard() {
             ) : <Empty />}
           </ChartCard>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Insuffisances matérielles */}
-            <ChartCard title="Principales insuffisances matérielles et logistiques" loading={loading}>
-              {insuffisances.length ? (
-                <div className="overflow-auto max-h-64">
-                  <div className="flex flex-wrap gap-2 p-1">
-                    {insuffisances.map((d, i) => (
-                      <span
-                        key={i}
-                        className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 text-red-800 text-xs font-medium px-2.5 py-1 rounded-full"
-                        title={`${d.total} direction(s) concernée(s)`}
-                      >
-                        {d.insuffisance}
-                        <span className="bg-red-200 text-red-900 font-bold px-1.5 py-0.5 rounded-full text-xs">{d.total}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : <Empty />}
-            </ChartCard>
+          {/* Heat map insuffisances */}
+          <ChartCard title="Carte de chaleur — Insuffisances matérielles et logistiques par direction" loading={loading}>
+            <HeatMap data={insHeatmap} />
+          </ChartCard>
 
-            {/* Pies: locaux, internet, électricité */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <ChartCard title="Locaux adaptés ?" loading={loading}>
-                <OuiNonPie data={locaux} />
-              </ChartCard>
-              <ChartCard title="Qualité internet" loading={loading}>
-                <MultiPie data={equipements.internet} />
-              </ChartCard>
-              <ChartCard title="Électricité" loading={loading}>
-                <MultiPie data={equipements.electricite} />
-              </ChartCard>
-            </div>
+          {/* Pies: locaux, internet, électricité */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <ChartCard title="Locaux adaptés ?" loading={loading}>
+              <OuiNonPie data={locaux} />
+            </ChartCard>
+            <ChartCard title="Qualité internet" loading={loading}>
+              <MultiPie data={equipements.internet} />
+            </ChartCard>
+            <ChartCard title="Électricité" loading={loading}>
+              <MultiPie data={equipements.electricite} />
+            </ChartCard>
           </div>
         </section>
 
@@ -630,7 +926,7 @@ export default function Dashboard() {
           <SectionHeader
             number="6"
             title="Suivi des actions et des décisions"
-            description="Mesures nécessitant l'intervention de la DG ou un arbitrage du Ministre (Sect. XI)"
+            description="Journal chronologique des mesures nécessitant l'intervention de la DG ou un arbitrage du Ministre (Sect. XI)"
           />
 
           <ChartCard title="Journal des mesures — DG et Ministre" loading={loading}>

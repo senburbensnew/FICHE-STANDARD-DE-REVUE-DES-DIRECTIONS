@@ -1,0 +1,269 @@
+{
+  "nav": {
+    "home": "Akèy",
+    "form": "Fòmilè",
+    "analytics": "Analiz",
+    "admin": "Administrasyon",
+    "logout": "Dekonekte",
+    "login": "Konekte",
+    "collapse": "Fèmen",
+    "expand": "Ouvri meni",
+    "submissions": "Soumisyon"
+  },
+  "submissions": {
+    "title": "Fich soumèt yo",
+    "scopeOwn": "Soumisyon direksyon / inite ou a",
+    "scopeAll": "Tout soumisyon yo — tout direksyon",
+    "filterDirection": "Direksyon",
+    "filterDirectionPlaceholder": "Chèche yon direksyon…",
+    "filterPeriod": "Peryòd",
+    "reset": "Reyinisyalize",
+    "colDirection": "Direksyon",
+    "colPeriod": "Peryòd kouvri",
+    "colReunion": "Dat reyinyon",
+    "colStatus": "Estati",
+    "colSubmitted": "Soumèt nan",
+    "view": "Wè",
+    "empty": "Pa gen fich jwenn",
+    "detailTitle": "Fich revizyon",
+    "reunion": "Reyinyon :",
+    "submitted": "Soumèt nan"
+  },
+  "accueil": {
+    "country": "Repiblik Ayiti",
+    "ministry": "Ministè Ekonomi ak Finans",
+    "badge": "Zouti jesyon entèn — MEF",
+    "title": "Fich Estanda",
+    "titleHighlight": "Revizyon Direksyon yo",
+    "subtitle": "Platfòm santralize pou kolekte ak analize enfòmasyon operasyonèl direksyon Ministè Ekonomi ak Finans. Chak direksyon soumèt mansyèlman yon fich estriktire pou pèmèt Direksyon Jeneral la swiv pèfòmans, resous ak bezwen enstitisyon an.",
+    "fillForm": "Ranpli fich mwa a",
+    "dashboard": "Tablo de bò",
+    "administration": "Administrasyon",
+    "connect": "Konekte",
+    "features": {
+      "guided": {
+        "title": "Sezi guidé",
+        "desc": "Fòmilè 11 etap estriktire sou aks estratejik yo : RH, lokal, ekipman, kominikasyon, rapò ak kontrènt."
+      },
+      "analytics": {
+        "title": "Analiz & Swivi",
+        "desc": "Tablo de bò konsolide ak endikasyon pèfòmans, konparezon ant direksyon yo ak evolisyon nan tan."
+      },
+      "secure": {
+        "title": "Aksè sekirize",
+        "desc": "Otantifikasyon santralize via Keycloak ak jesyon wòl : responsab direksyon, ekip DG ak administratè."
+      }
+    },
+    "footer": "MEF — Direksyon Jeneral © {{year}} · Itilizasyon entèn"
+  },
+  "form": {
+    "header": "Ministè Ekonomi ak Finans — Direksyon Jeneral",
+    "title": "Fich Estanda Revizyon Direksyon yo",
+    "subtitle": "Dokiman administratif — MEF",
+    "step": "Etap {{current}} / {{total}}",
+    "previous": "Tounen",
+    "next": "Kontinye",
+    "submit": "Soumèt fich la",
+    "submitting": "Ap voye…",
+    "prefillBanner": "Kèk enfòmasyon pèmanan te pré-ranpli depi dènye soumisyon ou",
+    "prefillBannerTag": "pré-ranpli",
+    "prefillBannerSuffix": ". Verifye yo epi korije si nesesè.",
+    "alreadySubmitted": "Soumisyon deja fèt.",
+    "alreadySubmittedDetail": "Direksyon <strong>{{direction}}</strong> deja soumèt yon fich pou peryòd sa a. Yon sèl soumisyon pèmèt pa peryòd.",
+    "validationError": "Tanpri ranpli tout chan obligatwa yo anvan ou kontinye. Chan ki manke yo make an wouj.",
+    "submitError": "Erè :",
+    "successTitle": "Fich soumèt avèk siksè",
+    "successMessage": "Fich estanda revizyon ou an anrejistre. Li pral transmèt bay Direksyon Jeneral la.",
+    "fillNext": "Ranpli fich mwa pwochen"
+  },
+  "field": {
+    "required": "Chan sa a obligatwa",
+    "automatic": "otomatik",
+    "prefilled": "pré-ranpli",
+    "select": "Chwazi…",
+    "search": "Chèche…",
+    "noResult": "Pa gen rezilta",
+    "addEntry": "Ajoute yon antré",
+    "entryRequired": "Omwen yon antré obligatwa.",
+    "addCategory": "Ajoute yon kategori",
+    "categoryRequired": "Omwen yon kategori obligatwa.",
+    "categoryHint": "Kategori + Efektif",
+    "remove": "Retire",
+    "dateFormat": "jj/mm/aaaa",
+    "yesNo": {
+      "yes": "Wi",
+      "no": "Non"
+    }
+  },
+  "steps": {
+    "s1": {
+      "title": "Idantifikasyon Estrikti a",
+      "notice": "Pou transmèt bay Direksyon Jeneral la karant-uit (48) èdtan anvan reyinyon an nan adrès sa yo : uep.mef@gmail.com, secretariatdg@mef.gouv.ht, bouco.jeanjacques@mef.gouv.ht",
+      "groupDirection": "Direksyon",
+      "intituleDirection": "Non Direksyon / Inite a",
+      "localisation": "Lokalizasyon",
+      "localisationPlaceholder": "Adrès sièj la",
+      "groupResponsable": "Responsab",
+      "responsable": "Responsab",
+      "responsablePlaceholder": "Chwazi yon responsab",
+      "loading": "Chajman…",
+      "fonction": "Fonksyon",
+      "fonctionPlaceholder": "ex. Direktè",
+      "tel": "Kòdoné telefònik",
+      "telPlaceholder": "ex. +509 3700-0000",
+      "email": "Adrès elektwonik",
+      "emailPlaceholder": "ex. nom@mef.gouv.ht",
+      "groupReunion": "Reyinyon",
+      "periodeDebut": "Kòmansman peryòd kouvri a",
+      "periodeFin": "Fen peryòd kouvri a",
+      "dateReunion": "Dat reyinyon an",
+      "errDebutApresFin": "Kòmansman peryòd la dwe anvan oswa egal ak fen an.",
+      "errFinApresReunion": "Fen peryòd la dwe anvan dat reyinyon an.",
+      "errReunionAvantFin": "Dat reyinyon an dwe apre fen peryòd la."
+    },
+    "s2": {
+      "title": "Misyon ak Atribisyon",
+      "missionPrincipale": "Misyon prensipal estrikti a",
+      "principalesAttributions": "Prensipal atribisyon yo",
+      "principauxServices": "Prensipal sèvis yo bay"
+    },
+    "s3": {
+      "title": "Sitiyasyon Resous Imèn yo",
+      "effectifTheorique": "Efektif teyorik",
+      "effectifPoste": "Efektif an pòs / Ajan aktif",
+      "effectifDisponible": "Efektif reyèlman disponib",
+      "postesVacants": "Pòs vakans",
+      "repartition": "Repartisyon pèsonèl la pa kategori",
+      "besoinsPrio": "Bezwen priyoritè an pèsonèl",
+      "besoinsPrioPlaceholder": "Ex. Rekritman yon kontab…",
+      "besoinsFormation": "Bezwen fòmasyon / ranfòsman kapasite",
+      "besoinsFormationPlaceholder": "Ex. Fòmasyon an jesyon pwojè…",
+      "difficultesRH": "Prensipal difikilte ki lye ak resous imèn yo"
+    },
+    "s4": {
+      "title": "Eta Fonksyonnman Estrikti a",
+      "activitesRealisees": "Aktivite prensipal realizé pandan peryòd la",
+      "activitesRealiseesPlaceholder": "Dekri yon aktivite realizé…",
+      "activitesEnCours": "Aktivite an kou",
+      "activitesEnCoursPlaceholder": "Dekri yon aktivite an kou…",
+      "activitesNonRealisees": "Aktivite ki pa realizé oswa pasyèlman realizé",
+      "activitesNonRealiseesPlaceholder": "Dekri yon aktivite ki pa realizé…",
+      "resultatsObtenus": "Rezilta yo jwenn",
+      "resultatsObtenusPlaceholder": "Dekri yon rezilta jwenn…",
+      "difficultesExecution": "Difikilte ki te afekte ekzekisyon aktivite yo",
+      "difficultesExecutionPlaceholder": "Dekri yon difikilte rankontre…"
+    },
+    "s5": {
+      "title": "Lokal, Enfrastrikti ak Imaj Enstitisyonèl",
+      "locauxAdaptes": "Eske lokal yo adapté ak misyon estrikti a ?",
+      "etatBatiments": "Eta jeneral bilding yo",
+      "niveauExiguite": "Nivo egzigite oswa inadekwasyon espas yo",
+      "etatProprete": "Eta pwòpte ak antretyen",
+      "signaletique": "Sinyaletik ak idantifikasyon enstitisyonèl vizib ?",
+      "conditionsAccueil": "Kondisyon akèy piblik la",
+      "travauxPrioritaires": "Travay oswa amelyorasyon priyoritè pou anvizaje",
+      "travauxPrioritairesPlaceholder": "Ex. Reparasyon twati a…"
+    },
+    "s6": {
+      "title": "Ekipman ak Mwayen Lojistik",
+      "mobilierBureau": "Disponibilite mobilye biwo",
+      "materielInformatique": "Disponibilite materyèl enfòmatik",
+      "etatOrdinateurs": "Eta òdinatè ak enprimant yo",
+      "electricite": "Disponibilite elektrisite",
+      "internet": "Disponibilite entènèt",
+      "vehicules": "Disponibilite veyikil / mwayen transpò",
+      "autresEquipements": "Lòt ekipman esansyèl",
+      "insuffisancesMaterielles": "Prensipal ensifizans materyèl ak lojistik",
+      "insuffisancesPlaceholder": "Ex. Mank enprimant…"
+    },
+    "s7": {
+      "title": "Kominikasyon, Sistèm ak Demateryalizasyon",
+      "circulationInfo": "Nivo sikilasyon enfòmasyon an entèn",
+      "relationsAutresStructures": "Relasyon ak lòt estrikti MEF yo",
+      "difficultesInternet": "Difikilte ki lye ak entènèt, rezo oswa sistèm yo",
+      "outilsNumeriques": "Zouti nimerik yo itilize",
+      "outilsNumeriquesPlaceholder": "Ex. SIGTAS, imèl, Teams…",
+      "proceduresDematerialisees": "Pwosedi demateryalize ki egziste",
+      "proceduresDematerialiseesPlaceholder": "Ex. Deklarasyon fiskal anliy…",
+      "proceduresManuelles": "Pwosedi ki toujou manyèl",
+      "proceduresManuellesPlaceholder": "Ex. Emisyon manyèl resi…",
+      "besoinsDig": "Bezwen nan dijitalizasyon",
+      "besoinsDigPlaceholder": "Ex. Nimerizasyon achiv yo…"
+    },
+    "s8": {
+      "title": "Pwodiksyon Rapò, Estatistik ak Livrab yo",
+      "rapportsPeriodiques": "Rapò peryodik pwodui ?",
+      "frequenceProduction": "Frekans pwodiksyon",
+      "frequencePlaceholder": "ex. Mansyèl, Trimestriyèl…",
+      "tableauxBord": "Tablo de bò disponib ?",
+      "statistiquesDisponibles": "Estatistik disponib ?",
+      "retardsRapports": "Reta oswa ensifizans konstate nan pwodiksyon rapò yo",
+      "derniersRapports": "Dènye rapò pwodui",
+      "derniersRapportsPlaceholder": "Ex. Rapò mansyèl mas 2025…",
+      "principauxLivrables": "Prensipal livrab realizé",
+      "principauxLivrablesPlaceholder": "Ex. Gid pwosedi…",
+      "causesRapports": "Kòz difikilte nan pwodiksyon rapò yo",
+      "causesRapportsPlaceholder": "Ex. Mank done sous…"
+    },
+    "s9": {
+      "titleContraintes": "Kontrènt Majè yo",
+      "noticeContraintes": "Tanpri klase twa prensipal kontrènt estrikti a (omwen premye a obligatwa) :",
+      "contrainte": "Kontrènt {{n}}",
+      "contraintePlaceholder_1": "Kontrènt prensipal…",
+      "contraintePlaceholder_2": "Dezyèm kontrènt…",
+      "contraintePlaceholder_3": "Twazyèm kontrènt…",
+      "titleBesoins": "Bezwen Priyoritè yo",
+      "noticeBesoins": "Tanpri endike bezwen ki pi ijan pou satisfè (omwen premye a obligatwa) :",
+      "besoin": "Bezwen {{n}}",
+      "besoinPlaceholder": "Bezwen priyoritè n°{{n}}…"
+    },
+    "s10": {
+      "titleMesures": "Mezi Korektif Pwopozé pa Direksyon an",
+      "mesuresStructure": "Mezi estrikti a ka pran pou kont li",
+      "mesuresDG": "Mezi ki nesesite entèvansyon Direksyon Jeneral la",
+      "mesuresMinistre": "Mezi ki nesesite abitraj Minis la",
+      "titleAppui": "Apui Tann de Direksyon Jeneral la",
+      "decisionsOuhaitees": "Desizyon swèt",
+      "appuisAdmin": "Apui administratif mande",
+      "appuisLogistiques": "Apui lojistik mande",
+      "appuisRH": "Apui an resous imèn mande",
+      "appuisNumerique": "Apui nan transfòmasyon nimerik mande"
+    },
+    "s11": {
+      "titleObservations": "Obsèvasyon Konplemantè",
+      "observations": "Obsèvasyon konplemantè",
+      "observationsPlaceholder": "Nenpòt obsèvasyon ki itil pou konplete fich la…",
+      "titleSignature": "Siyati",
+      "nomResponsable": "Non Responsab signatè a",
+      "fonctionSignature": "Fonksyon signatè a",
+      "dateSignature": "Dat siyati",
+      "signatureLabel": "Siyati",
+      "signatureClear": "Efase",
+      "signatureHint": "Trase siyati ou nan kadri ki anwo a.",
+      "signatureRequired": "Siyati a obligatwa.",
+      "note": "NB. — Tout ribrik yo dwe ranpli ak presizyon paske enfòmasyon yo bay yo pral sèvi kòm baz pou echanj pandan reyinyon an."
+    },
+    "labels": {
+      "I": "I. Idantifikasyon",
+      "II": "II. Misyon",
+      "III": "III. Resous Imèn",
+      "IV": "IV. Fonksyonnman",
+      "V": "V. Lokal",
+      "VI": "VI. Ekipman",
+      "VII": "VII. Kominikasyon",
+      "VIII": "VIII. Rapò",
+      "IX_X": "IX-X. Kontrènt & Bezwen",
+      "XI_XII": "XI-XII. Mezi & Apui",
+      "XIII_XIV": "XIII-XIV. Obsèvasyon & Siyati",
+      "confirm": "XV. Konfirmasyon"
+    }
+  },
+  "confirm": {
+    "bannerTitle": "Verifikasyon anvan soumisyon.",
+    "bannerBody": "Tanpri li tout enfòmasyon yo anba a avèk atansyon anvan ou soumèt fich la."
+  },
+  "dashboard": {
+    "loading": "Ap chaje…",
+    "noData": "Pa gen done disponib"
+  }
+}

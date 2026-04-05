@@ -257,7 +257,7 @@ const RevueSignature = sequelize.define('RevueSignature', {
   nom_signataire:     { ...STR(255) },
   fonction_signataire:{ ...STR(255) },
   date_signature:     { ...DATE },
-  signature_fichier:  { ...STR(255), defaultValue: null },
+  signature_image:    { ...TEXT, defaultValue: null },
 }, { tableName: 'revue_signature', timestamps: false })
 
 // ─── Associations ─────────────────────────────────────────────────────────────
@@ -297,6 +297,17 @@ SUB.forEach(([Model, as]) => {
   Revue.hasMany(Model, { foreignKey: 'revue_id', as, onDelete: 'CASCADE' })
   Model.belongsTo(Revue, { foreignKey: 'revue_id' })
 })
+
+// ─── AuditLog ─────────────────────────────────────────────────────────────────
+const AuditLog = sequelize.define('AuditLog', {
+  id:           { ...UUID },
+  action:       { ...STR(20),  allowNull: false },   // CREATE | UPDATE | DELETE
+  entity_type:  { ...STR(50),  allowNull: false },   // revue | direction | utilisateur
+  entity_id:    { ...STR(255), defaultValue: null },
+  entity_label: { ...STR(255), defaultValue: null }, // human-readable name
+  performed_by: { ...STR(255), defaultValue: null }, // keycloak username
+  details:      { type: DataTypes.JSON, defaultValue: null },
+}, { tableName: 'audit_logs', timestamps: true, createdAt: 'created_at', updatedAt: false })
 
 // hasOne aliases for single-record sub-tables
 const SINGLE = [
@@ -343,4 +354,5 @@ module.exports = {
   RevueAppui,
   RevueObservation,
   RevueSignature,
+  AuditLog,
 }

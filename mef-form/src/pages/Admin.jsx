@@ -426,7 +426,7 @@ function DirectionSelect({ value, onChange, directions, hasError, onReload }) {
 
 const ROLES = [
   { value: 'admin',              label: 'Administrateur' },
-  { value: 'responsable',        label: 'Responsable' },
+  { value: 'responsable-direction', label: 'Responsable' },
   { value: 'direction-generale', label: 'Direction Générale' },
 ]
 
@@ -434,7 +434,7 @@ const ROLES = [
 const EMPTY_KC = {
   username: '', firstName: '', lastName: '', email: '',
   enabled: true, password: 'password123',
-  role: 'responsable', fonction: '', telephone: '', direction_id: '',
+  role: 'responsable-direction', fonction: '', telephone: '', direction_id: '',
 }
 
 function buildFormFromUser(user) {
@@ -445,14 +445,14 @@ function buildFormFromUser(user) {
     email:        user.email        || '',
     enabled:      user.enabled      ?? true,
     password:     '',
-    role:         user.realmRoles?.[0] || 'responsable',
+    role:         user.realmRoles?.[0] || 'responsable-direction',
     fonction:     user.attributes?.fonction?.[0]     || '',
     telephone:    user.attributes?.telephone?.[0]    || '',
     direction_id: user.attributes?.direction_id?.[0] || '',
   }
 }
 
-function KeycloakUserModal({ onClose, onSaved, token, user, directions, onReloadDirections }) {
+function KeycloakUserModal({ onClose, onSaved, token, user, directions, onReloadDirections, existingUsers = [] }) {
   const isEdit = !!user
   const [form, setForm]       = useState(isEdit ? buildFormFromUser(user) : EMPTY_KC)
   const [loading, setLoading] = useState(false)
@@ -466,8 +466,13 @@ function KeycloakUserModal({ onClose, onSaved, token, user, directions, onReload
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.username.trim()) { setError("Le nom d'utilisateur est requis."); return }
+    if (!form.email.trim()) { setError("L'adresse email est requise."); return }
     if (!form.direction_id) { setError('La direction est requise.'); return }
     if (!isEdit && !form.password.trim()) { setError('Le mot de passe est requis pour un nouvel utilisateur.'); return }
+    if (!isEdit) {
+      const duplicate = existingUsers.find(u => u.email?.toLowerCase() === form.email.trim().toLowerCase())
+      if (duplicate) { setError(`L'adresse email "${form.email.trim()}" est déjà utilisée par "${duplicate.username}".`); return }
+    }
     setLoading(true)
     try {
       if (isEdit) {
@@ -499,13 +504,29 @@ function KeycloakUserModal({ onClose, onSaved, token, user, directions, onReload
         </div>
 
         <Field label="Nom d'utilisateur" required>
-          <input value={form.username} onChange={e => set('username', e.target.value)}
-            placeholder="ex. jdupont" className={inputCls(!form.username && !!error)} />
+          <input
+            value={form.username}
+            onChange={isEdit ? undefined : e => set('username', e.target.value)}
+            readOnly={isEdit}
+            placeholder="ex. jdupont"
+            className={isEdit
+              ? inputCls(false) + ' bg-gray-50 text-gray-500 cursor-not-allowed'
+              : inputCls(!form.username && !!error)}
+          />
         </Field>
 
-        <Field label="Email">
-          <input type="email" value={form.email} onChange={e => set('email', e.target.value)}
-            placeholder="ex. jdupont@mef.gouv.ht" className={inputCls(false)} />
+        <Field label="Email" required>
+          <input
+            type="email"
+            value={form.email}
+            onChange={isEdit ? undefined : e => set('email', e.target.value)}
+            readOnly={isEdit}
+            placeholder="ex. jdupont@mef.gouv.ht"
+            className={isEdit
+              ? inputCls(false) + ' bg-gray-50 text-gray-500 cursor-not-allowed'
+              : inputCls(!form.email && !!error)}
+          />
+          {isEdit && <p className="text-xs text-gray-400 mt-1">Le nom d'utilisateur et l'email ne peuvent pas être modifiés.</p>}
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -573,6 +594,9 @@ function KeycloakUsersSection({ token }) {
   const [loading, setLoading]   = useState(true)
   const [alert, setAlert]       = useState(null)
   const [search, setSearch]     = useState('')
+  const [filterRole, setFilterRole]           = useState('')
+  const [filterDirection, setFilterDirection] = useState('')
+  const [filterStatut, setFilterStatut]       = useState('')
   const [modal, setModal]       = useState(null) // null | 'add' | user object
 
   const load = useCallback(() => {
@@ -600,12 +624,17 @@ function KeycloakUsersSection({ token }) {
 
   const filtered = users.filter(u => {
     const q = search.toLowerCase()
-    return (
+    if (q && !(
       (u.username || '').toLowerCase().includes(q) ||
       (u.email || '').toLowerCase().includes(q) ||
       (u.firstName || '').toLowerCase().includes(q) ||
       (u.lastName || '').toLowerCase().includes(q)
-    )
+    )) return false
+    if (filterRole && !u.realmRoles?.includes(filterRole)) return false
+    if (filterDirection && u.attributes?.direction_id?.[0] !== filterDirection) return false
+    if (filterStatut === 'actif' && !u.enabled) return false
+    if (filterStatut === 'desactive' && u.enabled) return false
+    return true
   })
 
   return (
@@ -622,17 +651,55 @@ function KeycloakUsersSection({ token }) {
 
       <Alert type={alert?.type} msg={alert?.msg} onClose={() => setAlert(null)} />
 
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         <input
           type="text"
           placeholder="Rechercher un compte..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="flex-1 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+          className="flex-1 min-w-[160px] text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
         />
+        <select
+          value={filterRole}
+          onChange={e => setFilterRole(e.target.value)}
+          className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+        >
+          <option value="">Tous les rôles</option>
+          {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+        </select>
+        <select
+          value={filterDirection}
+          onChange={e => setFilterDirection(e.target.value)}
+          className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-[200px]"
+        >
+          <option value="">Toutes les directions</option>
+          {directions.map(d => (
+            <option key={d.direction_id} value={String(d.direction_id)}>
+              {d.sigle || d.nom_direction}
+            </option>
+          ))}
+        </select>
+        <select
+          value={filterStatut}
+          onChange={e => setFilterStatut(e.target.value)}
+          className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-blue-300"
+        >
+          <option value="">Tous les statuts</option>
+          <option value="actif">Actif</option>
+          <option value="desactive">Désactivé</option>
+        </select>
+        {(filterRole || filterDirection || filterStatut) && (
+          <button
+            onClick={() => { setFilterRole(''); setFilterDirection(''); setFilterStatut('') }}
+            className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1"
+            title="Réinitialiser les filtres"
+          >
+            ✕ Réinitialiser
+          </button>
+        )}
         <button
           onClick={() => setModal('add')}
-          className="flex items-center gap-1.5 text-sm px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 font-medium transition-colors"
+          className="flex items-center gap-1.5 text-sm px-4 py-2 bg-blue-800 text-white rounded-lg hover:bg-blue-900 font-medium transition-colors ml-auto"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -710,6 +777,7 @@ function KeycloakUsersSection({ token }) {
           token={token}
           user={modal === 'add' ? null : modal}
           directions={directions}
+          existingUsers={users}
           onReloadDirections={reloadDirections}
           onClose={() => setModal(null)}
           onSaved={() => {

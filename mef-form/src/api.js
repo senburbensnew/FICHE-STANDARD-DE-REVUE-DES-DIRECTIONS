@@ -49,6 +49,7 @@ export async function deleteDirection(id, token) {
 }
 
 export const fetchKeycloakUsers = (token) => get('/keycloak/users', token)
+export const fetchUsersByDirection = (directionId) => get(`/keycloak/users?direction_id=${encodeURIComponent(directionId)}`)
 
 export async function createKeycloakUser(data, token) {
   const res = await fetch(`${BASE}/keycloak/users`, {
@@ -82,6 +83,14 @@ export async function updateKeycloakUser(id, data, token) {
 export const checkDoublon = (direction, periodeDebut, periodeFin) =>
   get(`/revues/check?direction=${encodeURIComponent(direction)}&periode_debut=${encodeURIComponent(periodeDebut)}&periode_fin=${encodeURIComponent(periodeFin)}`)
 
+export function fetchRevues(params = {}, token) {
+  const qs = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => { if (v) qs.set(k, v) })
+  return get(`/revues?${qs.toString()}`, token)
+}
+
+export const fetchRevue = (id, token) => get(`/revues/${id}`, token)
+
 export async function addDirection(data, token) {
   const res = await fetch(`${BASE}/directions`, {
     method: 'POST',
@@ -95,25 +104,40 @@ export async function addDirection(data, token) {
   return res.json()
 }
 
-function dirQuery(direction) {
-  return direction ? `?direction=${encodeURIComponent(direction)}` : ''
+// f = { dir, annee, trim }
+function analyticsQuery(f = {}) {
+  const qs = new URLSearchParams()
+  if (f.dir)   qs.set('direction', f.dir)
+  if (f.annee) qs.set('annee', f.annee)
+  if (f.trim)  qs.set('trimestre', f.trim)
+  const s = qs.toString()
+  return s ? `?${s}` : ''
 }
 
-export const fetchOverview              = (token, dir) => get(`/analytics/overview${dirQuery(dir)}`, token)
-export const fetchParDirection          = (token, dir) => get(`/analytics/par-direction${dirQuery(dir)}`, token)
-export const fetchParMois               = (token, dir) => get(`/analytics/par-mois${dirQuery(dir)}`, token)
-export const fetchLocaux                = (token, dir) => get(`/analytics/locaux${dirQuery(dir)}`, token)
-export const fetchRapports              = (token, dir) => get(`/analytics/rapports${dirQuery(dir)}`, token)
-export const fetchParPeriode            = (token, dir) => get(`/analytics/par-periode${dirQuery(dir)}`, token)
-export const fetchEffectifs             = (token, dir) => get(`/analytics/effectifs${dirQuery(dir)}`, token)
-export const fetchEquipements           = (token, dir) => get(`/analytics/equipements${dirQuery(dir)}`, token)
-export const fetchConformite            = (token, dir) => get(`/analytics/conformite${dirQuery(dir)}`, token)
-export const fetchPostesVacants         = (token, dir) => get(`/analytics/postes-vacants${dirQuery(dir)}`, token)
-export const fetchBesoinFormation       = (token, dir) => get(`/analytics/besoins-formation${dirQuery(dir)}`, token)
-export const fetchActivitesNonRealisees = (token, dir) => get(`/analytics/activites-non-realisees${dirQuery(dir)}`, token)
-export const fetchDifficultesActivites  = (token, dir) => get(`/analytics/difficultes-activites${dirQuery(dir)}`, token)
-export const fetchInfraIndicateurs      = (token, dir) => get(`/analytics/infra-indicateurs${dirQuery(dir)}`, token)
-export const fetchInsuffisances         = (token, dir) => get(`/analytics/insuffisances${dirQuery(dir)}`, token)
-export const fetchContraintes           = (token, dir) => get(`/analytics/contraintes${dirQuery(dir)}`, token)
-export const fetchAppuis                = (token, dir) => get(`/analytics/appuis${dirQuery(dir)}`, token)
-export const fetchActions               = (token, dir) => get(`/analytics/actions${dirQuery(dir)}`, token)
+export async function fetchAuditLogs(params = {}, token) {
+  const qs = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => { if (v) qs.set(k, v) })
+  const res = await fetch(`${BASE}/audit?${qs.toString()}`, { headers: authHeaders(token) })
+  if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Erreur') }
+  return res.json()
+}
+
+export const fetchOverview                = (token, f) => get(`/analytics/overview${analyticsQuery(f)}`, token)
+export const fetchParDirection            = (token, f) => get(`/analytics/par-direction${analyticsQuery(f)}`, token)
+export const fetchParMois                 = (token, f) => get(`/analytics/par-mois${analyticsQuery(f)}`, token)
+export const fetchLocaux                  = (token, f) => get(`/analytics/locaux${analyticsQuery(f)}`, token)
+export const fetchRapports                = (token, f) => get(`/analytics/rapports${analyticsQuery(f)}`, token)
+export const fetchParPeriode              = (token, f) => get(`/analytics/par-periode${analyticsQuery(f)}`, token)
+export const fetchEffectifs               = (token, f) => get(`/analytics/effectifs${analyticsQuery(f)}`, token)
+export const fetchEquipements             = (token, f) => get(`/analytics/equipements${analyticsQuery(f)}`, token)
+export const fetchConformite              = (token, f) => get(`/analytics/conformite${analyticsQuery(f)}`, token)
+export const fetchPostesVacants           = (token, f) => get(`/analytics/postes-vacants${analyticsQuery(f)}`, token)
+export const fetchBesoinFormation         = (token, f) => get(`/analytics/besoins-formation${analyticsQuery(f)}`, token)
+export const fetchActivitesNonRealisees   = (token, f) => get(`/analytics/activites-non-realisees${analyticsQuery(f)}`, token)
+export const fetchDifficultesActivites    = (token, f) => get(`/analytics/difficultes-activites${analyticsQuery(f)}`, token)
+export const fetchInfraIndicateurs        = (token, f) => get(`/analytics/infra-indicateurs${analyticsQuery(f)}`, token)
+export const fetchInsuffisances           = (token, f) => get(`/analytics/insuffisances${analyticsQuery(f)}`, token)
+export const fetchInsuffisancesHeatmap    = (token, f) => get(`/analytics/insuffisances-heatmap${analyticsQuery(f)}`, token)
+export const fetchContraintes             = (token, f) => get(`/analytics/contraintes${analyticsQuery(f)}`, token)
+export const fetchAppuis                  = (token, f) => get(`/analytics/appuis${analyticsQuery(f)}`, token)
+export const fetchActions                 = (token, f) => get(`/analytics/actions${analyticsQuery(f)}`, token)

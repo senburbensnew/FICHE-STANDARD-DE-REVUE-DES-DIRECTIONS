@@ -63,6 +63,7 @@ services:
       CLIENT_URL: http://localhost
       KEYCLOAK_URL: http://keycloak:8180
       KEYCLOAK_REALM: mef
+      KEYCLOAK_ISSUER: http://localhost:8180/realms/mef
       KC_ADMIN: ${KC_ADMIN:-admin}
       KC_ADMIN_PASS: ${KC_ADMIN_PASS:-admin}
     ports:

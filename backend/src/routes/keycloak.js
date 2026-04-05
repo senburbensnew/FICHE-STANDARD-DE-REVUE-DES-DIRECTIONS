@@ -3,6 +3,7 @@
  */
 const express = require('express')
 const router  = express.Router()
+const { audit } = require('../auditLogger')
 
 const KC_URL   = process.env.KEYCLOAK_URL   || 'http://keycloak:8180'
 const KC_REALM = process.env.KEYCLOAK_REALM || 'mef'
@@ -60,7 +61,7 @@ async function replaceRoles(adminToken, userId, newRoleName) {
   if (newRoleName) await assignRole(adminToken, userId, newRoleName)
 }
 
-// GET /api/keycloak/users
+// GET /api/keycloak/users[?direction_id=X]
 router.get('/users', async (req, res) => {
   try {
     const adminToken = await getAdminToken()
@@ -69,7 +70,13 @@ router.get('/users', async (req, res) => {
       { headers: { Authorization: `Bearer ${adminToken}` } }
     )
     if (!kcRes.ok) throw new Error(`Keycloak users fetch failed: ${kcRes.status}`)
-    const users = await kcRes.json()
+    let users = await kcRes.json()
+
+    // Filter by direction when requested
+    const { direction_id } = req.query
+    if (direction_id) {
+      users = users.filter(u => u.attributes?.direction_id?.[0] === direction_id)
+    }
 
     // Fetch realm roles for each user in parallel
     const usersWithRoles = await Promise.all(users.map(async (u) => {
@@ -102,7 +109,6 @@ router.post('/users', async (req, res) => {
         attributes: {
           fonction:     [fonction     || ''],
           telephone:    [telephone    || ''],
-          actif:        [String(enabled)],
           direction_id: [direction_id || ''],
         },
         credentials: password
@@ -121,6 +127,7 @@ router.post('/users', async (req, res) => {
 
     if (role && id) await assignRole(adminToken, id, role)
 
+    await audit({ action: 'CREATE', entity_type: 'utilisateur', entity_id: id, entity_label: username, req, details: { role, direction_id } })
     res.status(201).json({ id })
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -142,7 +149,6 @@ router.put('/users/:id', async (req, res) => {
         attributes: {
           fonction:     [fonction     || ''],
           telephone:    [telephone    || ''],
-          actif:        [String(enabled)],
           direction_id: [direction_id || ''],
         },
       }),
@@ -163,6 +169,7 @@ router.put('/users/:id', async (req, res) => {
 
     if (role !== undefined) await replaceRoles(adminToken, id, role)
 
+    await audit({ action: 'UPDATE', entity_type: 'utilisateur', entity_id: id, entity_label: username, req, details: { role, direction_id, enabled } })
     res.json({ message: 'Utilisateur mis à jour.' })
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -181,6 +188,7 @@ router.delete('/users/:id', async (req, res) => {
       const err = await kcRes.json().catch(() => ({}))
       return res.status(kcRes.status).json({ message: err.errorMessage || `Keycloak error ${kcRes.status}` })
     }
+    await audit({ action: 'DELETE', entity_type: 'utilisateur', entity_id: req.params.id, entity_label: req.params.id, req })
     res.json({ message: 'Utilisateur supprimé.' })
   } catch (err) {
     res.status(500).json({ message: err.message })

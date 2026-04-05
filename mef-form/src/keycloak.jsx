@@ -31,12 +31,19 @@ export function KeycloakProvider({ children }) {
         })
 
         // Auto-refresh token 60 s before expiry
-        setInterval(() => {
-          keycloak.updateToken(60).then(refreshed => {
-            if (refreshed) {
-              setState(s => ({ ...s, token: keycloak.token }))
-            }
-          })
+        const intervalId = setInterval(() => {
+          keycloak.updateToken(60)
+            .then(refreshed => {
+              if (refreshed) {
+                setState(s => ({ ...s, token: keycloak.token }))
+              }
+            })
+            .catch(() => {
+              // Refresh token expired or invalid — force re-login
+              clearInterval(intervalId)
+              setState({ authenticated: false, token: null, user: null, loading: false, error: null })
+              keycloak.login()
+            })
         }, 30_000)
       })
       .catch(err => {

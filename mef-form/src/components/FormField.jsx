@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import DatePicker, { registerLocale } from 'react-datepicker'
 import { fr } from 'date-fns/locale'
 import { parseISO, format, isValid } from 'date-fns'
@@ -27,14 +28,16 @@ export function SectionTitle({ number, title }) {
   )
 }
 
-export function DateField({ label, name, value, onChange, showErrors = false, required = true, disabled = false }) {
+export function DateField({ label, name, value, onChange, showErrors = false, required = true, disabled = false, errorMsg = null }) {
+  const { t } = useTranslation()
   const isEmpty = required && showErrors && !value && !disabled
+  const hasError = isEmpty || !!errorMsg
 
   const triggerCls = [
     'w-full border rounded-lg px-3 py-2 text-sm text-left transition focus:outline-none focus:ring-2 focus:border-transparent',
     disabled
       ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
-      : isEmpty
+      : hasError
         ? 'border-red-400 bg-red-50 focus:ring-red-400 cursor-pointer'
         : 'border-gray-300 bg-white text-gray-800 focus:ring-blue-500 cursor-pointer',
   ].join(' ')
@@ -53,7 +56,7 @@ export function DateField({ label, name, value, onChange, showErrors = false, re
           dateFormat="dd/MM/yyyy"
           selected={toDate(value)}
           onChange={date => !disabled && onChange({ [name]: toISO(date) })}
-          placeholderText="jj/mm/aaaa"
+          placeholderText={t('field.dateFormat')}
           className={triggerCls}
           wrapperClassName="w-full"
           showMonthDropdown
@@ -62,7 +65,8 @@ export function DateField({ label, name, value, onChange, showErrors = false, re
           yearDropdownItemNumber={10}
           disabled={disabled}
         />
-        {isEmpty && <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>}
+        {isEmpty && <p className="text-xs text-red-500 mt-1">{t('field.required')}</p>}
+        {!isEmpty && errorMsg && <p className="text-xs text-red-500 mt-1">{errorMsg}</p>}
       </div>
     </div>
   )
@@ -74,6 +78,7 @@ export function Field({
   readOnly = false, showErrors = false, required = true,
   savedFields, disabled = false,
 }) {
+  const { t } = useTranslation()
   const prefilled = savedFields?.has(name) ?? false
   const isEmpty = required && showErrors && !disabled && (!value || String(value).trim() === '')
 
@@ -86,12 +91,15 @@ export function Field({
 
   const inputCls = `${base} ${disabled ? disCls : readOnly ? roCls : isEmpty ? errorCls : prefilled ? preCls : normal}`
 
+  const yesLabel = t('field.yesNo.yes')
+  const noLabel  = t('field.yesNo.no')
+
   return (
     <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
       <div className="md:col-span-2 pt-2 leading-snug">
         <label className="text-sm font-semibold text-gray-700">
           {label}
-          {readOnly && <span className="ml-1.5 text-xs font-normal text-blue-500 italic">(automatique)</span>}
+          {readOnly && <span className="ml-1.5 text-xs font-normal text-blue-500 italic">({t('field.automatic')})</span>}
           {required && !readOnly && <span className="ml-0.5 text-red-500">*</span>}
         </label>
         {prefilled && !readOnly && !disabled && (
@@ -100,7 +108,7 @@ export function Field({
               <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
               <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
             </svg>
-            pré-rempli
+            {t('field.prefilled')}
           </span>
         )}
       </div>
@@ -120,7 +128,7 @@ export function Field({
         ) : type === 'yesno' ? (
           <div>
             <div className={`flex gap-4 pt-2 rounded-lg ${isEmpty ? 'bg-red-50 px-3 py-1 border border-red-400' : ''}`}>
-              {['Oui', 'Non'].map(opt => (
+              {[yesLabel, noLabel].map(opt => (
                 <label key={opt} className={`flex items-center gap-2 ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                   <input
                     type="radio"
@@ -135,7 +143,7 @@ export function Field({
                 </label>
               ))}
             </div>
-            {isEmpty && <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>}
+            {isEmpty && <p className="text-xs text-red-500 mt-1">{t('field.required')}</p>}
           </div>
         ) : (
           <input
@@ -146,11 +154,12 @@ export function Field({
             placeholder={placeholder}
             readOnly={readOnly || disabled}
             disabled={disabled}
+            {...(type === 'number' ? { min: 0 } : {})}
             className={inputCls}
           />
         )}
         {isEmpty && type !== 'yesno' && (
-          <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>
+          <p className="text-xs text-red-500 mt-1">{t('field.required')}</p>
         )}
       </div>
     </div>
@@ -161,6 +170,7 @@ export function SearchableSelect({
   label, name, value, onChange,
   options = [], showErrors = false, required = true, savedFields,
 }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const containerRef = useRef(null)
@@ -210,7 +220,7 @@ export function SearchableSelect({
               <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" />
               <path fillRule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clipRule="evenodd" />
             </svg>
-            pré-rempli
+            {t('field.prefilled')}
           </span>
         )}
       </div>
@@ -225,7 +235,7 @@ export function SearchableSelect({
           }}
         >
           <span className={value ? 'text-gray-800' : 'text-gray-400'}>
-            {value || 'Sélectionner…'}
+            {value || t('field.select')}
           </span>
           <svg className={`w-4 h-4 text-gray-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -240,13 +250,13 @@ export function SearchableSelect({
                 type="text"
                 value={query}
                 onChange={e => setQuery(e.target.value)}
-                placeholder="Rechercher…"
+                placeholder={t('field.search')}
                 className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <ul className="max-h-56 overflow-y-auto py-1 flex-1">
               {filtered.length === 0 && (
-                <li className="px-3 py-2 text-sm text-gray-400 italic">Aucun résultat</li>
+                <li className="px-3 py-2 text-sm text-gray-400 italic">{t('field.noResult')}</li>
               )}
               {filtered.map(option => (
                 <li
@@ -261,7 +271,7 @@ export function SearchableSelect({
           </div>
         )}
 
-        {isEmpty && <p className="text-xs text-red-500 mt-1">Ce champ est obligatoire</p>}
+        {isEmpty && <p className="text-xs text-red-500 mt-1">{t('field.required')}</p>}
       </div>
     </div>
   )
@@ -288,23 +298,12 @@ export function SubGroup({ title, children }) {
   )
 }
 
-/**
- * DynamicList — liste d'entrées texte avec boutons Ajouter / Supprimer
- * Props :
- *   label       : intitulé de la section
- *   name        : clé dans formData (contient un tableau de strings)
- *   value       : tableau de strings
- *   onChange    : (updatedArray) => void   ← reçoit le tableau complet mis à jour
- *   showErrors  : boolean
- *   required    : boolean (au moins 1 entrée non vide requise)
- *   placeholder : texte d'espace réservé
- *   maxItems    : nombre max d'entrées (optionnel)
- */
 export function DynamicList({
   label, name, value = [''], onChange,
   showErrors = false, required = true,
-  placeholder = 'Saisir une valeur…', maxItems = 20,
+  placeholder = '', maxItems = 20,
 }) {
+  const { t } = useTranslation()
   const items = Array.isArray(value) && value.length > 0 ? value : ['']
   const hasError = required && showErrors && !items.some(v => v && v.trim())
 
@@ -341,7 +340,7 @@ export function DynamicList({
                 type="text"
                 value={item}
                 onChange={e => update(idx, e.target.value)}
-                placeholder={placeholder}
+                placeholder={placeholder || t('field.addEntry')}
                 className={`flex-1 border rounded-lg px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:border-transparent ${
                   hasError && !item.trim()
                     ? 'border-red-400 bg-red-50 focus:ring-red-400'
@@ -352,7 +351,7 @@ export function DynamicList({
                 type="button"
                 onClick={() => remove(idx)}
                 className="shrink-0 w-8 h-8 mt-0.5 flex items-center justify-center rounded-md border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 transition"
-                title="Supprimer"
+                title={t('field.remove')}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -369,11 +368,11 @@ export function DynamicList({
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Ajouter une entrée
+              {t('field.addEntry')}
             </button>
           )}
           {hasError && (
-            <p className="text-xs text-red-500">Au moins une entrée est requise.</p>
+            <p className="text-xs text-red-500">{t('field.entryRequired')}</p>
           )}
         </div>
       </div>
@@ -381,13 +380,11 @@ export function DynamicList({
   )
 }
 
-/**
- * DynamicTable — liste de paires {categorie, nombre} (pour répartition du personnel)
- */
 export function DynamicTable({
   label, name, value = [{ categorie: '', nombre: '' }], onChange,
   showErrors = false, required = true,
 }) {
+  const { t } = useTranslation()
   const rows = Array.isArray(value) && value.length > 0
     ? value
     : [{ categorie: '', nombre: '' }]
@@ -412,7 +409,7 @@ export function DynamicTable({
             {label}
             {required && <span className="ml-0.5 text-red-500">*</span>}
           </label>
-          <p className="text-xs text-gray-400 mt-0.5">Catégorie + Effectif</p>
+          <p className="text-xs text-gray-400 mt-0.5">{t('field.categoryHint')}</p>
         </div>
         <div className="md:col-span-3 space-y-2">
           {rows.map((row, idx) => (
@@ -440,6 +437,7 @@ export function DynamicTable({
                 type="button"
                 onClick={() => remove(idx)}
                 className="shrink-0 w-8 h-8 mt-0.5 flex items-center justify-center rounded-md border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 transition"
+                title={t('field.remove')}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
@@ -455,10 +453,10 @@ export function DynamicTable({
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
-            Ajouter une catégorie
+            {t('field.addCategory')}
           </button>
           {hasError && (
-            <p className="text-xs text-red-500">Au moins une catégorie est requise.</p>
+            <p className="text-xs text-red-500">{t('field.categoryRequired')}</p>
           )}
         </div>
       </div>

@@ -43,32 +43,37 @@ Le schéma suit la cartographie officielle avec **29 tables normalisées** :
 
 ## Démarrage rapide
 
-1. Copier et renseigner le fichier d'environnement :
+### Premier lancement (base de données vide)
 
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Lancer tous les services :
-
-   ```bash
-   docker compose up --build
-   ```
-
-3. Accéder à l'application :
-   - Frontend : http://localhost
-   - API backend : http://localhost:5000/api
-   - Keycloak admin : http://localhost:8180 (identifiants : `admin` / `admin`)
-
-### Premier démarrage — initialisation du schéma
-
-Pour créer toutes les tables à partir d'un schéma vide, lancer une fois avec `DB_FORCE=true` :
+Détruire les volumes existants, reconstruire les images et démarrer tous les services :
 
 ```bash
-DB_FORCE=true docker compose up backend
+docker compose down -v && docker compose up --build
 ```
 
-Puis redémarrer normalement. Cette opération **supprime et recrée toutes les tables**.
+> Le flag `-v` supprime les volumes Docker (base de données, Keycloak). À n'utiliser que lors du premier démarrage ou pour repartir d'un état propre.
+
+Les tables sont créées automatiquement au démarrage du backend (`sequelize.sync`).
+
+### Démarrages suivants
+
+Une fois les volumes initialisés, relancer simplement avec :
+
+```bash
+docker compose up
+```
+
+Ajouter `--build` uniquement si du code a changé dans une image :
+
+```bash
+docker compose up --build
+```
+
+### Accès aux services
+
+- Frontend : http://localhost
+- API backend : http://localhost:5000/api
+- Keycloak admin : http://localhost:8180 (identifiants : `admin` / `admin`)
 
 ## Variables d'environnement
 
@@ -185,6 +190,3 @@ npm run dev      # Vite dev server sur http://localhost:5173
 - **Délai de modification** : toute modification est bloquée à moins de 2 jours avant la date de réunion
 - **Champs multiples** : 19 champs du formulaire sont stockés dans des tables dédiées (listes dynamiques avec boutons +/−)
 - **Données persistantes** : direction, responsable, mission, etc. sont pré-remplis lors des soumissions mensuelles suivantes
-
-
-Note de déploiement : Au premier démarrage avec le nouveau schéma, lancer le backend avec DB_FORCE=true pour recréer toutes les tables proprement (docker compose run backend DB_FORCE=true node src/server.js), puis redémarrer normalement.

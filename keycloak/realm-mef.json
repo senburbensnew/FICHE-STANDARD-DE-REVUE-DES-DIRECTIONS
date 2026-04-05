@@ -3,20 +3,33 @@
   "displayName": "Ministère de l'Économie et des Finances",
   "enabled": true,
   "sslRequired": "external",
+  "defaultLocale": "fr",
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "fr",
+    "en"
+  ],
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "accessTokenLifespan": 300,
   "refreshTokenMaxReuse": 0,
-
   "roles": {
     "realm": [
-      { "name": "admin",              "description": "Administrateur — accès complet" },
-      { "name": "responsable",        "description": "Responsable de direction — saisie et suivi des revues" },
-      { "name": "direction-generale", "description": "Direction Générale — consultation et validation" }
+      {
+        "name": "admin",
+        "description": "Administrateur — accès complet"
+      },
+      {
+        "name": "responsable-direction",
+        "description": "Responsable de direction — saisie et suivi des revues"
+      },
+      {
+        "name": "direction-generale",
+        "description": "Direction Générale — consultation et validation"
+      }
     ]
   },
-
   "clients": [
     {
       "clientId": "mef-form",
@@ -33,7 +46,46 @@
         "http://localhost",
         "http://localhost:5173"
       ],
-      "defaultClientScopes": ["web-origins", "profile", "roles", "email"]
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "protocolMappers": [
+        {
+          "name": "direction_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "direction_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "direction_id",
+            "jsonType.label": "String",
+            "multivalued": "false",
+            "aggregate.attrs": "false"
+          }
+        },
+        {
+          "name": "fonction",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "userinfo.token.claim": "true",
+            "user.attribute": "fonction",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "fonction",
+            "jsonType.label": "String",
+            "multivalued": "false",
+            "aggregate.attrs": "false"
+          }
+        }
+      ]
     },
     {
       "clientId": "mef-backend",
@@ -44,7 +96,19 @@
       "standardFlowEnabled": false
     }
   ],
-
+  "components": {
+    "org.keycloak.userprofile.UserProfileProvider": [
+      {
+        "providerId": "declarative-user-profile",
+        "subComponents": {},
+        "config": {
+          "kc.user.profile.config": [
+            "{\"unmanagedAttributePolicy\":\"ADMIN_EDIT\",\"attributes\":[{\"name\":\"username\",\"displayName\":\"${username}\",\"validations\":{\"length\":{\"min\":3,\"max\":255},\"username-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"email\",\"displayName\":\"${email}\",\"validations\":{\"email\":{},\"length\":{\"max\":255}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"firstName\",\"displayName\":\"${firstName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"lastName\",\"displayName\":\"${lastName}\",\"validations\":{\"length\":{\"max\":255},\"person-name-prohibited-characters\":{}},\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\",\"user\"]}},{\"name\":\"fonction\",\"displayName\":\"Fonction\",\"multivalued\":false,\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]}},{\"name\":\"telephone\",\"displayName\":\"Téléphone\",\"multivalued\":false,\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]}},{\"name\":\"direction_id\",\"displayName\":\"Direction\",\"multivalued\":false,\"permissions\":{\"view\":[\"admin\",\"user\"],\"edit\":[\"admin\"]}}]}"
+          ]
+        }
+      }
+    ]
+  },
   "users": [
     {
       "username": "admin.mef",
@@ -52,13 +116,26 @@
       "firstName": "Admin",
       "lastName": "MEF",
       "enabled": true,
-      "credentials": [{ "type": "password", "value": "Admin@1234", "temporary": true }],
-      "realmRoles": ["admin"],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Admin@1234",
+          "temporary": true
+        }
+      ],
+      "realmRoles": [
+        "admin"
+      ],
       "attributes": {
-        "fonction":     ["Administrateur Système"],
-        "telephone":    [""],
-        "actif":        ["true"],
-        "direction_id": [""]
+        "fonction": [
+          "Administrateur Système"
+        ],
+        "telephone": [
+          ""
+        ],
+        "direction_id": [
+          ""
+        ]
       }
     }
   ]
