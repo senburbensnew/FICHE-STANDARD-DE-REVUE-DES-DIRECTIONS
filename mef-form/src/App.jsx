@@ -278,6 +278,10 @@ export default function App() {
     }))
   }, [user])
 
+  useEffect(() => {
+    if (submitted) goTo('soumissions')
+  }, [submitted])
+
   const updateData = (fields) => setFormData(prev => ({ ...prev, ...fields }))
 
   const resetForDirection = (prefill) => {
@@ -546,10 +550,6 @@ export default function App() {
       </div>
     </div>
   )
-
-  useEffect(() => {
-    if (submitted) goTo('soumissions')
-  }, [submitted])
 
   return (
     <div className="min-h-screen bg-gray-50 flex">

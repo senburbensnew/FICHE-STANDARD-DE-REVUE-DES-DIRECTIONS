@@ -66,6 +66,7 @@ services:
       KEYCLOAK_ISSUER: http://localhost:8180/realms/mef
       KC_ADMIN: ${KC_ADMIN:-admin}
       KC_ADMIN_PASS: ${KC_ADMIN_PASS:-admin}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-c0a0221c9a73aeb5bb14a4e329b63c95334ea33073e7f531f8d86cf490e73ef8}
     ports:
       - "5001:5001"
     depends_on:
