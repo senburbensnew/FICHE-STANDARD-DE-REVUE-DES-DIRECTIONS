@@ -141,3 +141,45 @@ export const fetchInsuffisancesHeatmap    = (token, f) => get(`/analytics/insuff
 export const fetchContraintes             = (token, f) => get(`/analytics/contraintes${analyticsQuery(f)}`, token)
 export const fetchAppuis                  = (token, f) => get(`/analytics/appuis${analyticsQuery(f)}`, token)
 export const fetchActions                 = (token, f) => get(`/analytics/actions${analyticsQuery(f)}`, token)
+
+// ─── Réunions ─────────────────────────────────────────────────────────────────
+export const fetchReunions = (token, params = {}) => {
+  const qs = new URLSearchParams()
+  Object.entries(params).forEach(([k, v]) => { if (v != null) qs.set(k, v) })
+  const s = qs.toString()
+  return get(`/reunions${s ? `?${s}` : ''}`, token)
+}
+
+export const fetchReunion = (id, token) => get(`/reunions/${id}`, token)
+
+export async function createReunion(data, token) {
+  const res = await fetch(`${BASE}/reunions`, {
+    method: 'POST', headers: authHeaders(token), body: JSON.stringify(data),
+  })
+  if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Erreur') }
+  return res.json()
+}
+
+export async function updateReunion(id, data, token) {
+  const res = await fetch(`${BASE}/reunions/${id}`, {
+    method: 'PUT', headers: authHeaders(token), body: JSON.stringify(data),
+  })
+  if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Erreur') }
+  return res.json()
+}
+
+export async function annulerReunion(id, token) {
+  const res = await fetch(`${BASE}/reunions/${id}/annuler`, {
+    method: 'PATCH', headers: authHeaders(token),
+  })
+  if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Erreur') }
+  return res.json()
+}
+
+export async function deleteReunion(id, token) {
+  const res = await fetch(`${BASE}/reunions/${id}`, {
+    method: 'DELETE', headers: authHeaders(token),
+  })
+  if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Erreur') }
+  return res.json()
+}

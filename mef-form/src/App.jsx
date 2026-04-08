@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import Admin from './pages/Admin'
 import Historique from './pages/Historique'
 import Soumissions from './pages/Soumissions'
+import Reunions from './pages/Reunions'
 import Step1Identification from './steps/Step1Identification'
 import Step2Mission from './steps/Step2Mission'
 import Step3RessourcesHumaines from './steps/Step3RessourcesHumaines'
@@ -223,6 +224,7 @@ export default function App() {
   const [showAdmin, setShowAdmin]               = useState(false)
   const [showHistorique, setShowHistorique]     = useState(false)
   const [showSoumissions, setShowSoumissions]   = useState(false)
+  const [showReunions, setShowReunions]         = useState(false)
   const [sidebarOpen, setSidebarOpen]     = useState(false)
 
   const goTo = (view) => {
@@ -231,6 +233,7 @@ export default function App() {
     if (view === 'admin'        && (!authenticated || !isAdmin))                          view = 'accueil'
     if (view === 'historique'   && (!authenticated || (!isAdmin && !isDG)))               view = 'accueil'
     if (view === 'soumissions'  && (!authenticated || (!isResponsable && !isDG)))         view = 'accueil'
+    if (view === 'reunions'    && (!authenticated || (!isDG && !isAdmin && !isResponsable))) view = 'accueil'
     if (view === 'form') {
       setSubmitted(false)
       setFormData(buildInitialData(loadSaved()))
@@ -243,6 +246,7 @@ export default function App() {
     setShowAdmin(view === 'admin')
     setShowHistorique(view === 'historique')
     setShowSoumissions(view === 'soumissions')
+    setShowReunions(view === 'reunions')
   }
 
   const saved    = loadSaved()
@@ -363,7 +367,7 @@ export default function App() {
           <button
             onClick={() => goTo('form')}
             title={t('nav.form')}
-            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${!showAccueil && !showDashboard && !showAdmin && !showHistorique ? 'bg-green-50 text-green-900' : 'text-gray-700 hover:bg-gray-100'}`}
+            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${!showAccueil && !showDashboard && !showAdmin && !showHistorique && !showSoumissions && !showReunions ? 'bg-green-50 text-green-900' : 'text-gray-700 hover:bg-gray-100'}`}
           >
             <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -381,6 +385,18 @@ export default function App() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             {sidebarOpen && t('nav.submissions')}
+          </button>
+        )}
+        {authenticated && (isResponsable || isDG || isAdmin) && (
+          <button
+            onClick={() => goTo('reunions')}
+            title="Réunions"
+            className={`flex items-center gap-3 px-3 py-2.5 text-sm font-medium whitespace-nowrap transition-colors ${showReunions ? 'bg-blue-50 text-blue-900' : 'text-gray-700 hover:bg-gray-100'}`}
+          >
+            <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {sidebarOpen && 'Réunions'}
           </button>
         )}
         {authenticated && isDG && (
@@ -540,6 +556,15 @@ export default function App() {
         </div>
       </div>
     )
+  )
+
+  if (showReunions) return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {sidebar}
+      <div className={`flex-1 ${mainOffset}`}>
+        <Reunions user={user} />
+      </div>
+    </div>
   )
 
   if (!authenticated || !isResponsable) return (

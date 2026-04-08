@@ -298,6 +298,21 @@ SUB.forEach(([Model, as]) => {
   Model.belongsTo(Revue, { foreignKey: 'revue_id' })
 })
 
+// ─── 30. reunions ─────────────────────────────────────────────────────────────
+const Reunion = sequelize.define('Reunion', {
+  reunion_id:   { ...UUID },
+  titre:        { ...TNN },
+  description:  { ...TEXT, defaultValue: '' },
+  date_reunion: { ...DATE, allowNull: false },
+  heure_debut:  { ...STR(10), defaultValue: null },
+  heure_fin:    { ...STR(10), defaultValue: null },
+  lieu:         { ...STR(255), defaultValue: '' },
+  periode_debut:{ ...DATE, defaultValue: null },
+  periode_fin:  { ...DATE, defaultValue: null },
+  creee_par:    { ...STR(255), defaultValue: null },
+  est_annulee:  { ...BOOL, defaultValue: false },
+}, { tableName: 'reunions', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' })
+
 // ─── AuditLog ─────────────────────────────────────────────────────────────────
 const AuditLog = sequelize.define('AuditLog', {
   id:           { ...UUID },
@@ -355,4 +370,5 @@ module.exports = {
   RevueObservation,
   RevueSignature,
   AuditLog,
+  Reunion,
 }
