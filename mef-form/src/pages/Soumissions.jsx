@@ -160,11 +160,11 @@ function RevueDetail({ revue, onClose, t }) {
 
           <Section number="V" title={t('steps.s5.title')} />
           <div className="bg-white border border-gray-100 rounded-b-md px-3 pb-1">
-            <DRow label={t('steps.s5.locauxAdaptes')} value={infra.locaux_adaptes} />
-            <DRow label={t('steps.s5.etatBatiments')} value={infra.etat_batiments} />
+            <DRow label={t('steps.s5.locauxAdaptes')} value={infra.locaux_adaptes == null ? null : infra.locaux_adaptes ? 'Oui' : 'Non'} />
+            <DRow label={t('steps.s5.etatBatiments')} value={infra.etat_general_batiments} />
             <DRow label={t('steps.s5.niveauExiguite')} value={infra.niveau_exiguite} />
             <DRow label={t('steps.s5.etatProprete')} value={infra.etat_proprete} />
-            <DRow label={t('steps.s5.signaletique')} value={infra.signaletique} />
+            <DRow label={t('steps.s5.signaletique')} value={infra.signaletique_visible == null ? null : infra.signaletique_visible ? 'Oui' : 'Non'} />
             <DRow label={t('steps.s5.conditionsAccueil')} value={infra.conditions_accueil} />
             <ListRows label={t('steps.s5.travauxPrioritaires')} items={(d.travaux_prioritaires || []).map(t => t.travail)} />
           </div>
@@ -173,19 +173,19 @@ function RevueDetail({ revue, onClose, t }) {
           <div className="bg-white border border-gray-100 rounded-b-md px-3 pb-1">
             <DRow label={t('steps.s6.mobilierBureau')} value={equip.mobilier_bureau} />
             <DRow label={t('steps.s6.materielInformatique')} value={equip.materiel_informatique} />
-            <DRow label={t('steps.s6.etatOrdinateurs')} value={equip.etat_ordinateurs} />
-            <DRow label={t('steps.s6.electricite')} value={equip.electricite} />
-            <DRow label={t('steps.s6.internet')} value={equip.internet} />
-            <DRow label={t('steps.s6.vehicules')} value={equip.vehicules} />
+            <DRow label={t('steps.s6.etatOrdinateurs')} value={equip.etat_informatique} />
+            <DRow label={t('steps.s6.electricite')} value={equip.disponibilite_electricite} />
+            <DRow label={t('steps.s6.internet')} value={equip.disponibilite_internet} />
+            <DRow label={t('steps.s6.vehicules')} value={equip.disponibilite_vehicules} />
             <DRow label={t('steps.s6.autresEquipements')} value={equip.autres_equipements} />
             <ListRows label={t('steps.s6.insuffisancesMaterielles')} items={(d.insuffisances_materielles || []).map(i => i.insuffisance)} />
           </div>
 
           <Section number="VII" title={t('steps.s7.title')} />
           <div className="bg-white border border-gray-100 rounded-b-md px-3 pb-1">
-            <DRow label={t('steps.s7.circulationInfo')} value={comm.circulation_info} />
+            <DRow label={t('steps.s7.circulationInfo')} value={comm.circulation_information} />
             <DRow label={t('steps.s7.relationsAutresStructures')} value={comm.relations_autres_structures} />
-            <DRow label={t('steps.s7.difficultesInternet')} value={comm.difficultes_internet} />
+            <DRow label={t('steps.s7.difficultesInternet')} value={comm.difficultes_informatiques} />
             <ListRows label={t('steps.s7.outilsNumeriques')} items={(d.outils_numeriques || []).map(o => o.outil)} />
             <ListRows label={t('steps.s7.proceduresDematerialisees')} items={(d.procedures_dematerialisees || []).map(p => p.procedure)} />
             <ListRows label={t('steps.s7.proceduresManuelles')} items={(d.procedures_manuelles || []).map(p => p.procedure)} />
@@ -194,10 +194,10 @@ function RevueDetail({ revue, onClose, t }) {
 
           <Section number="VIII" title={t('steps.s8.title')} />
           <div className="bg-white border border-gray-100 rounded-b-md px-3 pb-1">
-            <DRow label={t('steps.s8.rapportsPeriodiques')} value={rapport.rapports_periodiques} />
+            <DRow label={t('steps.s8.rapportsPeriodiques')} value={rapport.rapports_produits == null ? null : rapport.rapports_produits ? 'Oui' : 'Non'} />
             <DRow label={t('steps.s8.frequenceProduction')} value={rapport.frequence_production} />
-            <DRow label={t('steps.s8.tableauxBord')} value={rapport.tableaux_bord} />
-            <DRow label={t('steps.s8.statistiquesDisponibles')} value={rapport.statistiques_disponibles} />
+            <DRow label={t('steps.s8.tableauxBord')} value={rapport.tableaux_bord_disponibles == null ? null : rapport.tableaux_bord_disponibles ? 'Oui' : 'Non'} />
+            <DRow label={t('steps.s8.statistiquesDisponibles')} value={rapport.statistiques_disponibles == null ? null : rapport.statistiques_disponibles ? 'Oui' : 'Non'} />
             <DRow label={t('steps.s8.retardsRapports')} value={rapport.retards_insuffisances} />
             <ListRows label={t('steps.s8.derniersRapports')} items={(d.derniers_rapports || []).map(r => r.rapport)} />
             <ListRows label={t('steps.s8.principauxLivrables')} items={(d.livrables || []).map(l => l.livrable)} />
