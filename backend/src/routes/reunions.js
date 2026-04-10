@@ -5,7 +5,7 @@
  */
 const express = require('express')
 const router  = express.Router()
-const { Reunion } = require('../models/index')
+const { Reunion, Revue, Direction } = require('../models/index')
 const { audit }   = require('../auditLogger')
 const { sendMail, getAllUserEmails } = require('../utils/mailer')
 
@@ -25,13 +25,21 @@ function reunionEmailHtml(reunion, type = 'creation') {
     ? `Rappel — Réunion dans 7 jours : ${reunion.titre}`
     : type === 'rappel_1j'
     ? `Rappel — Réunion demain : ${reunion.titre}`
+    : type === 'annulation'
+    ? `Réunion annulée : ${reunion.titre}`
+    : type === 'rappel_soumission_24h'
+    ? `Rappel soumission — Réunion du ${fmtDate(reunion.date_reunion)} : ${reunion.titre}`
     : `Nouvelle réunion planifiée : ${reunion.titre}`
 
   const intro = type === 'creation'
     ? 'Une nouvelle réunion a été planifiée par la Direction Générale.'
     : type === 'rappel_7j'
     ? 'Rappel : une réunion est prévue dans <strong>7 jours</strong>.'
-    : 'Rappel : une réunion est prévue <strong>demain</strong>.'
+    : type === 'rappel_1j'
+    ? 'Rappel : une réunion est prévue <strong>demain</strong>.'
+    : type === 'rappel_soumission_24h'
+    ? `Votre direction n'a pas encore soumis sa fiche de revue pour la réunion du <strong>${fmtDate(reunion.date_reunion)}</strong>. Le délai de soumission expire dans <strong>24 heures</strong>.`
+    : '<strong style="color:#b91c1c">Cette réunion a été annulée par la Direction Générale.</strong>'
 
   return `
   <div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden">
@@ -177,6 +185,15 @@ router.patch('/:id/annuler', async (req, res) => {
       action: 'UPDATE', entity_type: 'reunion',
       entity_id: reunion.reunion_id, entity_label: `${reunion.titre} [ANNULÉE]`, req,
     })
+
+    // Notify all users asynchronously
+    getAllUserEmails().then(emails => {
+      if (!emails.length) return
+      const subject = `Réunion annulée : ${reunion.titre}`
+      const html = reunionEmailHtml(reunion.toJSON(), 'annulation')
+      return sendMail({ to: emails, subject, html })
+    }).catch(err => console.error('[reunions] Erreur envoi email annulation :', err.message))
+
     res.json({ message: 'Réunion annulée.' })
   } catch (err) {
     res.status(500).json({ message: err.message })
@@ -201,23 +218,26 @@ router.delete('/:id', async (req, res) => {
 
 /**
  * Envoi des rappels — appelé par le cron dans server.js.
- * Envoie un rappel 7 jours avant et 1 jour avant chaque réunion non annulée.
+ * - Rappel 7j et 1j avant chaque réunion (tous utilisateurs)
+ * - Rappel 24h après la réunion aux directions n'ayant pas encore soumis
  */
 async function sendReminders() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const in7 = new Date(today); in7.setDate(today.getDate() + 7)
-  const in1 = new Date(today); in1.setDate(today.getDate() + 1)
+  const in7      = new Date(today); in7.setDate(today.getDate() + 7)
+  const in1      = new Date(today); in1.setDate(today.getDate() + 1)
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1)
 
   const toISO = (d) => d.toISOString().split('T')[0]
 
-  const targets = [
+  // ── Rappels pré-réunion (tous utilisateurs) ──────────────────────────────
+  const preTargets = [
     { date: toISO(in7), type: 'rappel_7j' },
     { date: toISO(in1), type: 'rappel_1j' },
   ]
 
-  for (const { date, type } of targets) {
+  for (const { date, type } of preTargets) {
     const reunions = await Reunion.findAll({
       where: { date_reunion: date, est_annulee: false },
     })
@@ -233,7 +253,67 @@ async function sendReminders() {
       console.log(`[reunions] Rappel ${type} envoyé pour "${r.titre}" (${date})`)
     }
   }
+
+  // ── Rappel 24h post-réunion — directions n'ayant pas encore soumis ───────
+  const reunionsHier = await Reunion.findAll({
+    where: { date_reunion: toISO(yesterday), est_annulee: false },
+  })
+
+  for (const r of reunionsHier) {
+    // Directions ayant déjà soumis une revue pour cette date de réunion
+    const soumises = await Revue.findAll({
+      where: { date_reunion: r.date_reunion },
+      attributes: ['direction_id'],
+    })
+    const soumisesIds = soumises.map(s => s.direction_id)
+
+    // Directions actives qui n'ont pas encore soumis
+    const allDirs = await Direction.findAll({
+      where: { statut: 'Actif' },
+      attributes: ['direction_id', 'nom_direction', 'email_officiel'],
+    })
+    const emails = allDirs
+      .filter(d => !soumisesIds.includes(d.direction_id) && d.email_officiel)
+      .map(d => d.email_officiel)
+
+    if (!emails.length) {
+      console.log(`[reunions] Rappel soumission : toutes les directions ont déjà soumis pour "${r.titre}"`)
+      continue
+    }
+
+    const subject = `Rappel soumission — Réunion du ${fmtDate(r.date_reunion)} : ${r.titre}`
+    const html    = reunionEmailHtml(r.toJSON(), 'rappel_soumission_24h')
+    await sendMail({ to: emails, subject, html }).catch(err =>
+      console.error(`[reunions] Erreur rappel soumission 24h pour "${r.titre}" :`, err.message)
+    )
+    console.log(`[reunions] Rappel soumission 24h envoyé à ${emails.length} direction(s) pour "${r.titre}"`)
+  }
 }
+
+// ─── GET /api/reunions/:id/soumissions ───────────────────────────────────────
+// Retourne le nombre de directions ayant soumis pour cette réunion (par date_reunion)
+router.get('/:id/soumissions', async (req, res) => {
+  try {
+    const reunion = await Reunion.findByPk(req.params.id)
+    if (!reunion) return res.status(404).json({ message: 'Réunion introuvable' })
+
+    const [soumises, totalDirs] = await Promise.all([
+      Revue.findAll({
+        where: { date_reunion: reunion.date_reunion },
+        attributes: ['direction_id'],
+      }),
+      Direction.count({ where: { statut: 'Actif' } }),
+    ])
+
+    res.json({
+      soumises:    soumises.length,
+      total:       totalDirs,
+      deadline:    new Date(new Date(reunion.date_reunion).getTime() + 48 * 60 * 60 * 1000).toISOString(),
+    })
+  } catch (err) {
+    res.status(500).json({ message: err.message })
+  }
+})
 
 module.exports = router
 module.exports.sendReminders = sendReminders

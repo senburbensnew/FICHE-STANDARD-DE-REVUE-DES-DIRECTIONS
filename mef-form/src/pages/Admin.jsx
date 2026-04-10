@@ -435,6 +435,7 @@ const EMPTY_KC = {
   username: '', firstName: '', lastName: '', email: '',
   enabled: true, password: 'password123',
   role: 'responsable-direction', fonction: '', telephone: '', direction_id: '',
+  nif: '', ninu: '',
 }
 
 function buildFormFromUser(user) {
@@ -449,6 +450,8 @@ function buildFormFromUser(user) {
     fonction:     user.attributes?.fonction?.[0]     || '',
     telephone:    user.attributes?.telephone?.[0]    || '',
     direction_id: user.attributes?.direction_id?.[0] || '',
+    nif:          user.attributes?.nif?.[0]          || '',
+    ninu:         user.attributes?.ninu?.[0]         || '',
   }
 }
 
@@ -488,7 +491,7 @@ function KeycloakUserModal({ onClose, onSaved, token, user, directions, onReload
   }
 
   return (
-    <ModalShell title={isEdit ? 'Modifier le compte' : 'Ajouter un compte Keycloak'} onClose={onClose}>
+    <ModalShell title={isEdit ? 'Modifier le compte' : 'Ajouter un compte'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="p-6 space-y-4">
         {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>}
 
@@ -540,6 +543,17 @@ function KeycloakUserModal({ onClose, onSaved, token, user, directions, onReload
           </Field>
         </div>
 
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="NIF">
+            <input value={form.nif} onChange={e => set('nif', e.target.value)}
+              placeholder="Numéro d'Identification Fiscale" className={inputCls(false)} />
+          </Field>
+          <Field label="NINU">
+            <input value={form.ninu} onChange={e => set('ninu', e.target.value)}
+              placeholder="Numéro d'Identification Nationale Unique" className={inputCls(false)} />
+          </Field>
+        </div>
+
         <Field label="Direction" required error={!form.direction_id && !!error ? 'Champ obligatoire' : ''}>
           <DirectionSelect
             value={form.direction_id}
@@ -588,7 +602,7 @@ function KeycloakUserModal({ onClose, onSaved, token, user, directions, onReload
 }
 
 // ─── Section Comptes Keycloak ─────────────────────────────────────────────────
-function KeycloakUsersSection({ token }) {
+function KeycloakUsersSection({ token, currentUserId }) {
   const [users, setUsers]       = useState([])
   const [directions, setDirections] = useState([])
   const [loading, setLoading]   = useState(true)
@@ -612,6 +626,10 @@ function KeycloakUsersSection({ token }) {
   useEffect(() => { load() }, [load])
 
   const handleDelete = async (u) => {
+    if (u.id === currentUserId) {
+      setAlert({ type: 'error', msg: 'Vous ne pouvez pas supprimer votre propre compte.' })
+      return
+    }
     if (!window.confirm(`Supprimer le compte "${u.username}" ? Cette action est irréversible.`)) return
     try {
       await deleteKeycloakUser(u.id, token)
@@ -640,7 +658,7 @@ function KeycloakUsersSection({ token }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
       <SectionHeader
-        title="Comptes Keycloak"
+        title="Comptes"
         count={users.length}
         icon={
           <svg className="w-5 h-5 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -729,9 +747,13 @@ function KeycloakUsersSection({ token }) {
               )}
               {filtered.map(u => {
                 const roleLabel = ROLES.find(r => u.realmRoles?.includes(r.value))?.label || '—'
+                const isSelf = u.id === currentUserId
                 return (
                   <tr key={u.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                    <td className="py-2.5 pr-4 font-medium text-gray-800">{u.username}</td>
+                    <td className="py-2.5 pr-4 font-medium text-gray-800">
+                      {u.username}
+                      {isSelf && <span className="ml-1.5 text-xs text-blue-500 font-normal">(moi)</span>}
+                    </td>
                     <td className="py-2.5 pr-4 text-gray-500 hidden sm:table-cell">
                       {[u.firstName, u.lastName].filter(Boolean).join(' ') || '—'}
                     </td>
@@ -754,15 +776,17 @@ function KeycloakUsersSection({ token }) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                       </button>
-                      <button
-                        onClick={() => handleDelete(u)}
-                        className="text-red-400 hover:text-red-600 transition-colors"
-                        title="Supprimer"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      {!isSelf && (
+                        <button
+                          onClick={() => handleDelete(u)}
+                          className="text-red-400 hover:text-red-600 transition-colors"
+                          title="Supprimer"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
@@ -792,7 +816,7 @@ function KeycloakUsersSection({ token }) {
 
 // ─── Page Administration ──────────────────────────────────────────────────────
 export default function Admin() {
-  const { token } = useKeycloak()
+  const { token, user } = useKeycloak()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -807,7 +831,7 @@ export default function Admin() {
 
       <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
         <DirectionsSection token={token} />
-        <KeycloakUsersSection token={token} />
+        <KeycloakUsersSection token={token} currentUserId={user?.sub} />
       </div>
     </div>
   )

@@ -1,18 +1,25 @@
 import { useState, useEffect, useCallback } from 'react'
-import { format, parseISO, isValid, isPast, differenceInCalendarDays } from 'date-fns'
+import { format, parseISO, isValid, isPast, differenceInCalendarDays, differenceInHours, startOfDay } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import DatePicker, { registerLocale } from 'react-datepicker'
 import { fetchReunions, createReunion, updateReunion, annulerReunion, deleteReunion } from '../api'
 import { useKeycloak } from '../keycloak'
 
-function fmtDate(iso) {
-  if (!iso) return '—'
+registerLocale('fr', fr)
+
+function toDate(iso) {
+  if (!iso) return null
   const d = parseISO(iso)
-  return isValid(d) ? format(d, 'dd MMMM yyyy', { locale: fr }) : iso
+  return isValid(d) ? d : null
 }
 
+function toISO(date) {
+  return date ? format(date, 'yyyy-MM-dd') : ''
+}
+
+
 const EMPTY_FORM = {
-  titre: '', description: '', date_reunion: '', heure_debut: '', heure_fin: '',
-  lieu: '', periode_debut: '', periode_fin: '',
+  titre: '', description: '', date_reunion: '', heure_debut: '', heure_fin: '', lieu: '',
 }
 
 function StatusPill({ r }) {
@@ -45,9 +52,56 @@ function StatusPill({ r }) {
   )
 }
 
+function DeadlineBadge({ r }) {
+  if (r.est_annulee || !r.date_reunion) return null
+  const reunionDate = parseISO(r.date_reunion)
+  if (!isValid(reunionDate) || reunionDate > new Date()) return null
+
+  const deadline = new Date(reunionDate.getTime() + 48 * 60 * 60 * 1000)
+  const hoursLeft = differenceInHours(deadline, new Date())
+
+  if (hoursLeft > 0) return (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">
+      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      Soumission — {hoursLeft}h restantes
+    </span>
+  )
+  return (
+    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">
+      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+      </svg>
+      Soumissions clôturées
+    </span>
+  )
+}
+
+const dpCls = 'w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white'
+
 function FormModal({ initial, onSave, onClose, saving, error }) {
   const [form, setForm] = useState(initial || EMPTY_FORM)
+  const [localError, setLocalError] = useState('')
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const today = startOfDay(new Date())
+
+  function validate() {
+    if (form.heure_debut && form.heure_fin && form.heure_fin <= form.heure_debut) {
+      return "L'heure de fin doit être postérieure à l'heure de début."
+    }
+    return null
+  }
+
+  function handleSave() {
+    const err = validate()
+    if (err) { setLocalError(err); return }
+    setLocalError('')
+    onSave(form)
+  }
+
+  const displayError = localError || error
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -63,7 +117,7 @@ function FormModal({ initial, onSave, onClose, saving, error }) {
           </button>
         </div>
         <div className="p-6 space-y-4">
-          {error && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>}
+          {displayError && <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{displayError}</p>}
 
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1">Titre <span className="text-red-500">*</span></label>
@@ -89,11 +143,18 @@ function FormModal({ initial, onSave, onClose, saving, error }) {
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-3 sm:col-span-1">
               <label className="block text-xs font-semibold text-gray-600 mb-1">Date <span className="text-red-500">*</span></label>
-              <input
-                type="date"
-                value={form.date_reunion}
-                onChange={e => set('date_reunion', e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              <DatePicker
+                locale="fr"
+                dateFormat="dd/MM/yyyy"
+                selected={toDate(form.date_reunion)}
+                onChange={date => set('date_reunion', toISO(date))}
+                minDate={today}
+                placeholderText="jj/mm/aaaa"
+                className={dpCls}
+                wrapperClassName="w-full"
+                showMonthDropdown
+                showYearDropdown
+                dropdownMode="select"
               />
             </div>
             <div>
@@ -126,26 +187,6 @@ function FormModal({ initial, onSave, onClose, saving, error }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Période début</label>
-              <input
-                type="date"
-                value={form.periode_debut}
-                onChange={e => set('periode_debut', e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-gray-600 mb-1">Période fin</label>
-              <input
-                type="date"
-                value={form.periode_fin}
-                onChange={e => set('periode_fin', e.target.value)}
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-300"
-              />
-            </div>
-          </div>
         </div>
 
         <div className="px-6 pb-6 flex justify-end gap-3">
@@ -156,7 +197,7 @@ function FormModal({ initial, onSave, onClose, saving, error }) {
             Annuler
           </button>
           <button
-            onClick={() => onSave(form)}
+            onClick={handleSave}
             disabled={saving || !form.titre.trim() || !form.date_reunion}
             className="text-sm px-5 py-2 rounded-lg bg-blue-800 text-white font-medium hover:bg-blue-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
@@ -333,6 +374,7 @@ export default function Reunions({ user }) {
                           {r.titre}
                         </h3>
                         <StatusPill r={r} />
+                        <DeadlineBadge r={r} />
                       </div>
                       {r.description && (
                         <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{r.description}</p>
@@ -356,14 +398,6 @@ export default function Reunions({ user }) {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
                         {r.lieu}
-                      </span>
-                    )}
-                    {r.periode_debut && (
-                      <span className="flex items-center gap-1">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        Période : {fmtDate(r.periode_debut)} → {fmtDate(r.periode_fin)}
                       </span>
                     )}
                   </div>
@@ -390,15 +424,17 @@ export default function Reunions({ user }) {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                       </svg>
                     </button>
-                    <button
-                      onClick={() => { setConfirmId(r.reunion_id); setConfirmAction('supprimer') }}
-                      className="flex-1 px-4 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
-                      title="Supprimer"
-                    >
-                      <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                    {!isPast(parseISO(r.date_reunion)) && (
+                      <button
+                        onClick={() => { setConfirmId(r.reunion_id); setConfirmAction('supprimer') }}
+                        className="flex-1 px-4 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+                        title="Supprimer"
+                      >
+                        <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

@@ -41,7 +41,19 @@ const Revue = sequelize.define('Revue', {
   date_soumission:     { ...TS, defaultValue: DataTypes.NOW },
   date_validation_dg:  { ...TS, defaultValue: null },
   commentaires_dg:     { ...TEXT, defaultValue: null },
-}, { tableName: 'revues', timestamps: true, createdAt: 'created_at', updatedAt: 'updated_at' })
+}, {
+  tableName: 'revues',
+  timestamps: true,
+  createdAt: 'created_at',
+  updatedAt: 'updated_at',
+  indexes: [
+    { fields: ['direction_id'] },           // JOIN directions ON direction_id
+    { fields: ['periode_debut'] },          // YEAR() / QUARTER() analytics filter
+    { fields: ['date_soumission'] },        // par-mois trend query
+    { fields: ['statut'] },                 // GROUP BY statut in conformite
+    { fields: ['direction_id', 'periode_debut'] }, // composite: most analytics queries
+  ],
+})
 
 // ─── 4. revue_ressources_humaines ─────────────────────────────────────────────
 const RevueRH = sequelize.define('RevueRH', {
@@ -52,6 +64,13 @@ const RevueRH = sequelize.define('RevueRH', {
   postes_vacants:              { ...INT },
   difficultes_rh:              { ...TEXT },
 }, { tableName: 'revue_ressources_humaines', timestamps: false })
+
+// ─── 4b. revue_postes_vacants ─────────────────────────────────────────────────
+const RevuePosteVacant = sequelize.define('RevuePosteVacant', {
+  id:         { ...UUID },
+  revue_id:   fk('revue_id'),
+  intitule:   { ...STR(255) },
+}, { tableName: 'revue_postes_vacants', timestamps: false })
 
 // ─── 5. revue_repartition_personnel ───────────────────────────────────────────
 const RevueRepartitionPersonnel = sequelize.define('RevueRepartitionPersonnel', {
@@ -82,7 +101,13 @@ const RevueActivite = sequelize.define('RevueActivite', {
   type_activite:   { ...STR(50) }, // principale_realisee | en_cours | non_realisee
   description:     { ...TEXT },
   ordre_affichage: { ...INT, defaultValue: 1 },
-}, { tableName: 'revue_activites', timestamps: false })
+}, {
+  tableName: 'revue_activites',
+  timestamps: false,
+  indexes: [
+    { fields: ['revue_id', 'type_activite'] }, // activites-non-realisees: WHERE type_activite IN (...)
+  ],
+})
 
 // ─── 9. revue_resultats ───────────────────────────────────────────────────────
 const RevueResultat = sequelize.define('RevueResultat', {
@@ -179,7 +204,7 @@ const RevueRapport = sequelize.define('RevueRapport', {
   id:                      { ...UUID },
   revue_id:                fk('revue_id'),
   rapports_produits:       { ...BOOL },
-  frequence_production:    { ...STR(50) },
+  frequence_production:    { ...TEXT },
   tableaux_bord_disponibles:{ ...BOOL },
   statistiques_disponibles:{ ...BOOL },
   retards_insuffisances:   { ...TEXT },
@@ -266,6 +291,7 @@ Revue.belongsTo(Direction, { foreignKey: 'direction_id', as: 'direction' })
 
 const SUB = [
   [RevueRH,                  'rh'],
+  [RevuePosteVacant,         'postes_vacants_liste'],
   [RevueRepartitionPersonnel,'repartition_personnel'],
   [RevueBesoinsPersonnel,    'besoins_personnel'],
   [RevueBesoinsFormation,    'besoins_formation'],
@@ -344,6 +370,7 @@ module.exports = {
   Direction,
   Revue,
   RevueRH,
+  RevuePosteVacant,
   RevueRepartitionPersonnel,
   RevueBesoinsPersonnel,
   RevueBesoinsFormation,

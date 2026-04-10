@@ -1,12 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import DatePicker, { registerLocale } from 'react-datepicker'
-import { fetchRevues, fetchRevue } from '../api'
+import { fetchRevues, fetchRevue, deleteRevue } from '../api'
 import { useKeycloak } from '../keycloak'
 import { format, parseISO, isValid } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 registerLocale('fr', fr)
+
+// true si on est à moins de 48h de la date de réunion (même logique que le backend)
+function isLocked(dateReunion) {
+  if (!dateReunion) return false
+  const reunion = new Date(dateReunion)
+  reunion.setHours(0, 0, 0, 0)
+  const deadline = new Date(reunion.getTime() - 48 * 60 * 60 * 1000)
+  return new Date() >= deadline
+}
 
 function fmtDate(iso) {
   if (!iso) return '—'
@@ -143,6 +152,7 @@ function RevueDetail({ revue, onClose, t }) {
             <DRow label={t('steps.s3.effectifPoste')} value={rh.effectif_en_poste} />
             <DRow label={t('steps.s3.effectifDisponible')} value={rh.effectif_reellement_disponible} />
             <DRow label={t('steps.s3.postesVacants')} value={rh.postes_vacants} />
+            <ListRows label={t('steps.s3.listePostesVacants')} items={(d.postes_vacants_liste || []).map(p => p.intitule)} />
             <DRow label={t('steps.s3.difficultesRH')} value={rh.difficultes_rh} />
             <ListRows label={t('steps.s3.repartition')} items={(d.repartition_personnel || []).map(r => `${r.categorie} : ${r.nombre}`)} />
             <ListRows label={t('steps.s3.besoinsPrio')} items={(d.besoins_personnel || []).map(b => b.besoin)} />
@@ -266,8 +276,9 @@ export default function Soumissions({ user }) {
   const { t } = useTranslation()
   const { token } = useKeycloak()
 
-  const isDG          = user?.realm_access?.roles?.includes('direction-generale') ?? false
-  const directionId   = user?.direction_id || null
+  const isDG              = user?.realm_access?.roles?.includes('direction-generale') ?? false
+  const isResponsable     = user?.realm_access?.roles?.includes('responsable-direction') ?? false
+  const directionId       = user?.direction_id || null
 
   const [rows, setRows]         = useState([])
   const [loading, setLoading]   = useState(true)
@@ -278,6 +289,11 @@ export default function Soumissions({ user }) {
   const [selectedId, setSelectedId]   = useState(null)
   const [detail, setDetail]           = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
+
+  const [deleteTarget, setDeleteTarget] = useState(null)   // { revue_id, label }
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteError, setDeleteError]   = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -301,12 +317,13 @@ export default function Soumissions({ user }) {
   async function openDetail(id) {
     setSelectedId(id)
     setDetail(null)
+    setDetailError('')
     setDetailLoading(true)
     try {
       const data = await fetchRevue(id, token)
       setDetail(data)
-    } catch {
-      setDetail(null)
+    } catch (err) {
+      setDetailError(err.message || 'Impossible de charger la fiche.')
     } finally {
       setDetailLoading(false)
     }
@@ -315,6 +332,23 @@ export default function Soumissions({ user }) {
   function closeDetail() {
     setSelectedId(null)
     setDetail(null)
+    setDetailError('')
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return
+    setDeleteLoading(true)
+    setDeleteError('')
+    try {
+      await deleteRevue(deleteTarget.revue_id, token)
+      setDeleteTarget(null)
+      if (selectedId === deleteTarget.revue_id) closeDetail()
+      load()
+    } catch (err) {
+      setDeleteError(err.message || 'Erreur lors de la suppression.')
+    } finally {
+      setDeleteLoading(false)
+    }
   }
 
   return (
@@ -423,7 +457,22 @@ export default function Soumissions({ user }) {
                     <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
                       {fmtDate(row.date_soumission)}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3 text-right flex items-center justify-end gap-3">
+                      {isResponsable && !isLocked(row.date_reunion) && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation()
+                            setDeleteError('')
+                            setDeleteTarget({
+                              revue_id: row.revue_id,
+                              label: `${row.direction?.nom_direction || row.revue_id} — ${fmtDate(row.periode_debut)} → ${fmtDate(row.periode_fin)}`,
+                            })
+                          }}
+                          className="text-xs text-red-500 hover:text-red-700 font-medium"
+                        >
+                          Supprimer
+                        </button>
+                      )}
                       <button
                         onClick={e => { e.stopPropagation(); openDetail(row.revue_id) }}
                         className="text-xs text-blue-700 hover:text-blue-900 font-medium"
@@ -439,6 +488,33 @@ export default function Soumissions({ user }) {
         )}
       </div>
 
+      {/* Delete confirm dialog */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !deleteLoading && setDeleteTarget(null)}>
+          <div className="bg-white rounded-xl shadow-2xl px-8 py-6 max-w-sm w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-sm font-bold text-gray-800 mb-1">Supprimer cette revue ?</h2>
+            <p className="text-xs text-gray-500 mb-4 leading-snug">{deleteTarget.label}</p>
+            {deleteError && <p className="text-xs text-red-600 mb-3">{deleteError}</p>}
+            <div className="flex justify-end gap-3">
+              <button
+                disabled={deleteLoading}
+                onClick={() => setDeleteTarget(null)}
+                className="text-xs px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50"
+              >
+                Annuler
+              </button>
+              <button
+                disabled={deleteLoading}
+                onClick={confirmDelete}
+                className="text-xs px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold disabled:opacity-50"
+              >
+                {deleteLoading ? 'Suppression…' : 'Supprimer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Detail drawer */}
       {selectedId && (
         detailLoading
@@ -447,7 +523,16 @@ export default function Soumissions({ user }) {
               <div className="bg-white rounded-xl px-8 py-6 text-sm text-gray-500">{t('dashboard.loading')}</div>
             </div>
           )
-          : <RevueDetail revue={detail} onClose={closeDetail} t={t} />
+          : detailError
+            ? (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30" onClick={closeDetail}>
+                <div className="bg-white rounded-xl px-8 py-6 shadow-xl text-center" onClick={e => e.stopPropagation()}>
+                  <p className="text-sm text-red-600 mb-4">{detailError}</p>
+                  <button onClick={closeDetail} className="text-xs px-4 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700">Fermer</button>
+                </div>
+              </div>
+            )
+            : <RevueDetail revue={detail} onClose={closeDetail} t={t} />
       )}
     </div>
   )

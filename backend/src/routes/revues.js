@@ -9,7 +9,7 @@ const { audit } = require('../auditLogger')
 const { encrypt, decrypt } = require('../utils/crypto')
 const {
   sequelize, Direction, Revue,
-  RevueRH, RevueRepartitionPersonnel, RevueBesoinsPersonnel, RevueBesoinsFormation,
+  RevueRH, RevuePosteVacant, RevueRepartitionPersonnel, RevueBesoinsPersonnel, RevueBesoinsFormation,
   RevueActivite, RevueResultat, RevueDifficulteActivite,
   RevueInfrastructure, RevueTravailPrioritaire,
   RevueEquipement, RevueInsuffisancesMat,
@@ -21,12 +21,22 @@ const {
 } = require('../models/index')
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function joursAvantReunion(dateStr) {
+// Retourne true si on est à moins de 48h de la date de réunion (début de journée)
+function modificationVerrouillee(dateStr) {
+  if (!dateStr) return false
   const reunion = new Date(dateStr)
   reunion.setHours(0, 0, 0, 0)
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  return Math.floor((reunion - today) / (1000 * 60 * 60 * 24))
+  const deadline = new Date(reunion.getTime() - 48 * 60 * 60 * 1000)
+  return new Date() >= deadline
+}
+
+// Retourne true si le délai de soumission de 48h après la réunion est dépassé
+function delaiSoumissionDepasse(dateReunionStr) {
+  if (!dateReunionStr) return false
+  const reunion = new Date(dateReunionStr)
+  reunion.setHours(0, 0, 0, 0)
+  const deadline = new Date(reunion.getTime() + 48 * 60 * 60 * 1000)
+  return new Date() > deadline
 }
 
 /**
@@ -46,6 +56,12 @@ async function createSubtables(revue_id, body, t) {
     postes_vacants:               Number(body.postesVacants)     || 0,
     difficultes_rh:               body.difficultesRH || '',
   }, opt)
+
+  // III — liste des postes vacants (optionnel)
+  const listePostes = Array.isArray(body.listePostesVacants) ? body.listePostesVacants : []
+  for (const p of listePostes) {
+    if (typeof p === 'string' && p.trim()) await RevuePosteVacant.create({ revue_id, intitule: p.trim() }, opt)
+  }
 
   // III Multiple — repartition personnel
   const repartition = Array.isArray(body.repartitionPersonnel) ? body.repartitionPersonnel : []
@@ -165,7 +181,10 @@ async function createSubtables(revue_id, body, t) {
   await RevueRapport.create({
     revue_id,
     rapports_produits:        body.rapportsPeriodiques === 'Oui' || body.rapportsPeriodiques === true,
-    frequence_production:     body.frequenceProduction     || '',
+    frequence_production:     JSON.stringify(
+                                [...(body.frequenceProduction || []),
+                                 ...(body.frequenceAutre ? [body.frequenceAutre] : [])
+                                ]),
     tableaux_bord_disponibles: body.tableauxBord === 'Oui' || body.tableauxBord === true,
     statistiques_disponibles: body.statistiquesDisponibles === 'Oui' || body.statistiquesDisponibles === true,
     retards_insuffisances:    body.retardsRapports         || '',
@@ -288,6 +307,14 @@ router.post('/', async (req, res) => {
       })
     }
 
+    // Vérifier le délai de soumission (48h après la réunion)
+    if (delaiSoumissionDepasse(body.dateReunion)) {
+      await t.rollback()
+      return res.status(403).json({
+        message: `Le délai de soumission de 48 heures après la réunion du ${body.dateReunion} est dépassé.`,
+      })
+    }
+
     // 3. Créer la revue
     const revue = await Revue.create({
       direction_id:    direction.direction_id,
@@ -363,33 +390,34 @@ router.get('/:id', async (req, res) => {
   try {
     const revue = await Revue.findByPk(req.params.id, {
       include: [
-        { model: Direction,                  as: 'direction' },
-        { model: RevueRH,                    as: 'rh' },
-        { model: RevueRepartitionPersonnel,  as: 'repartition_personnel' },
-        { model: RevueBesoinsPersonnel,      as: 'besoins_personnel' },
-        { model: RevueBesoinsFormation,      as: 'besoins_formation' },
-        { model: RevueActivite,              as: 'activites' },
-        { model: RevueResultat,              as: 'resultats' },
-        { model: RevueDifficulteActivite,    as: 'difficultes_activites' },
-        { model: RevueInfrastructure,        as: 'infrastructures' },
-        { model: RevueTravailPrioritaire,    as: 'travaux_prioritaires' },
-        { model: RevueEquipement,            as: 'equipements' },
-        { model: RevueInsuffisancesMat,      as: 'insuffisances_materielles' },
-        { model: RevueCommunication,         as: 'communication' },
-        { model: RevueOutilNumerique,        as: 'outils_numeriques' },
-        { model: RevueProcedureDematerialisee, as: 'procedures_dematerialisees' },
-        { model: RevueProcedureManuelle,     as: 'procedures_manuelles' },
-        { model: RevueBesoinDigitalisation,  as: 'besoins_digitalisation' },
-        { model: RevueRapport,               as: 'rapports' },
-        { model: RevueDernierRapport,        as: 'derniers_rapports' },
-        { model: RevueLivrable,              as: 'livrables' },
-        { model: RevueCauseDifficulteRapport, as: 'causes_difficultes_rapports' },
-        { model: RevueContrainte,            as: 'contraintes', order: [['ordre', 'ASC']] },
-        { model: RevueBesoinPrioritaire,     as: 'besoins_prioritaires', order: [['ordre', 'ASC']] },
-        { model: RevueAction,                as: 'actions' },
-        { model: RevueAppui,                 as: 'appuis' },
-        { model: RevueObservation,           as: 'observations', order: [['ordre', 'ASC']] },
-        { model: RevueSignature,             as: 'signature' },
+        { model: Direction,                    as: 'direction' },
+        { model: RevueRH,                      as: 'rh',                        separate: true },
+        { model: RevuePosteVacant,             as: 'postes_vacants_liste',      separate: true },
+        { model: RevueRepartitionPersonnel,    as: 'repartition_personnel',     separate: true },
+        { model: RevueBesoinsPersonnel,        as: 'besoins_personnel',         separate: true },
+        { model: RevueBesoinsFormation,        as: 'besoins_formation',         separate: true },
+        { model: RevueActivite,                as: 'activites',                 separate: true },
+        { model: RevueResultat,                as: 'resultats',                 separate: true },
+        { model: RevueDifficulteActivite,      as: 'difficultes_activites',     separate: true },
+        { model: RevueInfrastructure,          as: 'infrastructures',           separate: true },
+        { model: RevueTravailPrioritaire,      as: 'travaux_prioritaires',      separate: true },
+        { model: RevueEquipement,              as: 'equipements',               separate: true },
+        { model: RevueInsuffisancesMat,        as: 'insuffisances_materielles', separate: true },
+        { model: RevueCommunication,           as: 'communication',             separate: true },
+        { model: RevueOutilNumerique,          as: 'outils_numeriques',         separate: true },
+        { model: RevueProcedureDematerialisee, as: 'procedures_dematerialisees',separate: true },
+        { model: RevueProcedureManuelle,       as: 'procedures_manuelles',      separate: true },
+        { model: RevueBesoinDigitalisation,    as: 'besoins_digitalisation',    separate: true },
+        { model: RevueRapport,                 as: 'rapports',                  separate: true },
+        { model: RevueDernierRapport,          as: 'derniers_rapports',         separate: true },
+        { model: RevueLivrable,                as: 'livrables',                 separate: true },
+        { model: RevueCauseDifficulteRapport,  as: 'causes_difficultes_rapports',separate: true },
+        { model: RevueContrainte,              as: 'contraintes',               separate: true, order: [['ordre', 'ASC']] },
+        { model: RevueBesoinPrioritaire,       as: 'besoins_prioritaires',      separate: true, order: [['ordre', 'ASC']] },
+        { model: RevueAction,                  as: 'actions',                   separate: true },
+        { model: RevueAppui,                   as: 'appuis',                    separate: true },
+        { model: RevueObservation,             as: 'observations',              separate: true, order: [['ordre', 'ASC']] },
+        { model: RevueSignature,               as: 'signature',                 separate: true },
       ],
     })
     if (!revue) return res.status(404).json({ message: 'Revue introuvable' })
@@ -410,16 +438,16 @@ router.put('/:id', async (req, res) => {
     const revue = await Revue.findByPk(req.params.id, { transaction: t })
     if (!revue) { await t.rollback(); return res.status(404).json({ message: 'Revue introuvable' }) }
 
-    if (joursAvantReunion(revue.date_reunion) < 2) {
+    if (modificationVerrouillee(revue.date_reunion)) {
       await t.rollback()
       return res.status(403).json({
-        message: 'La modification n\'est plus autorisée : la date limite (2 jours avant la réunion) est dépassée.',
+        message: 'La modification n\'est plus autorisée : le délai de 48 heures avant la réunion est dépassé.',
       })
     }
 
     // Supprimer toutes les anciennes sous-tables
     const subModels = [
-      RevueRH, RevueRepartitionPersonnel, RevueBesoinsPersonnel, RevueBesoinsFormation,
+      RevueRH, RevuePosteVacant, RevueRepartitionPersonnel, RevueBesoinsPersonnel, RevueBesoinsFormation,
       RevueActivite, RevueResultat, RevueDifficulteActivite,
       RevueInfrastructure, RevueTravailPrioritaire,
       RevueEquipement, RevueInsuffisancesMat,
@@ -453,6 +481,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const revue = await Revue.findByPk(req.params.id)
     if (!revue) return res.status(404).json({ message: 'Revue introuvable' })
+
+    if (modificationVerrouillee(revue.date_reunion)) {
+      return res.status(403).json({
+        message: 'La suppression n\'est plus autorisée : le délai de 48 heures avant la réunion est dépassé.',
+      })
+    }
     const label = `revue ${revue.revue_id}`
     await revue.destroy()
     await audit({ action: 'DELETE', entity_type: 'revue', entity_id: req.params.id, entity_label: label, req })

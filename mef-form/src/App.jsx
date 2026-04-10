@@ -96,7 +96,7 @@ function buildInitialData(saved = {}) {
     besoinsDig:                [''],  // Multiple
 
     // VIII. Rapports
-    rapportsPeriodiques: '', frequenceProduction: '',
+    rapportsPeriodiques: '', frequenceProduction: [], frequenceAutre: '',
     tableauxBord: '', statistiquesDisponibles: '', retardsRapports: '',
     derniersRapports:  [''],  // Multiple
     principauxLivrables: [''], // Multiple
@@ -191,7 +191,7 @@ const STEP_VALIDATORS = [
       && hasItem(d.outilsNumeriques) && hasItem(d.proceduresDematerialisees)
       && hasItem(d.proceduresManuelles) && hasItem(d.besoinsDig),
   // Step 8
-  (d) => notEmpty(d.rapportsPeriodiques) && notEmpty(d.frequenceProduction)
+  (d) => notEmpty(d.rapportsPeriodiques) && (d.frequenceProduction?.length > 0)
       && notEmpty(d.tableauxBord) && notEmpty(d.statistiquesDisponibles) && notEmpty(d.retardsRapports)
       && hasItem(d.derniersRapports) && hasItem(d.principauxLivrables) && hasItem(d.causesRapports),
   // Step 9 — au moins contrainte 1 et besoin 1
@@ -201,7 +201,7 @@ const STEP_VALIDATORS = [
       && notEmpty(d.decisionsOuhaitees) && notEmpty(d.appuisAdmin) && notEmpty(d.appuisLogistiques)
       && notEmpty(d.appuisRH) && notEmpty(d.appuisNumerique),
   // Step 11
-  (d) => hasItem(d.observations) && notEmpty(d.nomResponsable) && notEmpty(d.fonctionSignature) && notEmpty(d.dateSignature) && notEmpty(d.signatureImage),
+  (d) => hasItem(d.observations) && notEmpty(d.nomResponsable) && notEmpty(d.fonctionSignature) && notEmpty(d.dateSignature),
   // Step 12 — confirmation, always valid
   () => true,
 ]
@@ -747,18 +747,18 @@ export default function App() {
 
       <footer className="border-t border-gray-200 bg-white mt-8">
         <div className="max-w-4xl mx-auto px-4 py-4 flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-xs text-gray-400">
-          <span className="font-semibold text-gray-500">Contact administrateur</span>
+          <span className="font-semibold text-gray-500">Contact</span>
           <a href="mailto:admin.revue@finances.gov.mg" className="flex items-center gap-1 hover:text-blue-700 transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
             </svg>
-            admin.revue@finances.gov.mg
+             uep.mef@gmail.com, secretariatdg@mef.gouv.ht,  bouco.jeanjacques@mef.gouv.ht
           </a>
           <a href="tel:+261200000000" className="flex items-center gap-1 hover:text-blue-700 transition-colors">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
             </svg>
-            +261 20 00 000 00
+            +509 31686393
           </a>
           <span className="text-gray-300">|</span>
           <span>MEF — Direction Générale © {new Date().getFullYear()}</span>

@@ -32,11 +32,7 @@ export default function Step11Signature({ data, onChange, showErrors, savedField
     onChange({ signatureImage: '' })
   }
 
-  const isEmpty = showErrors && !data.signatureImage
-  const sigCls = [
-    'w-full rounded-lg border-2 touch-none',
-    isEmpty ? 'border-red-400 bg-red-50' : 'border-gray-300 bg-white',
-  ].join(' ')
+  const sigCls = 'w-full rounded-lg border-2 touch-none border-gray-300 bg-white'
 
   return (
     <div className="space-y-8">
@@ -64,7 +60,7 @@ export default function Step11Signature({ data, onChange, showErrors, savedField
 
         <div className="mt-6 border border-gray-200 rounded-lg p-5 bg-gray-50">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-gray-700">{t('steps.s11.signatureLabel')}</p>
+            <p className="text-sm font-semibold text-gray-700">{t('steps.s11.signatureLabel')} <span className="text-xs font-normal text-gray-400 ml-1">(optionnel)</span></p>
             <button
               type="button"
               onClick={handleClear}
@@ -80,9 +76,6 @@ export default function Step11Signature({ data, onChange, showErrors, savedField
             backgroundColor="transparent"
             penColor="#1e3a5f"
           />
-          {isEmpty && (
-            <p className="text-xs text-red-500 mt-1">{t('steps.s11.signatureRequired')}</p>
-          )}
           <p className="text-xs text-gray-400 mt-2 italic">{t('steps.s11.signatureHint')}</p>
         </div>
 

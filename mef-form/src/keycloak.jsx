@@ -20,7 +20,7 @@ export function KeycloakProvider({ children }) {
 
   useEffect(() => {
     keycloak
-      .init({ onLoad: 'check-sso', checkLoginIframe: false, silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html' })
+      .init({ onLoad: 'check-sso', checkLoginIframe: false, silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html', locale: 'fr' })
       .then(authenticated => {
         setState({
           authenticated,
@@ -52,7 +52,7 @@ export function KeycloakProvider({ children }) {
   }, [])
 
   const logout = () => keycloak.logout()
-  const login  = () => keycloak.login()
+  const login  = () => keycloak.login({ locale: 'fr' })
 
   return createElement(KeycloakContext.Provider, { value: { ...state, logout, login } }, children)
 }

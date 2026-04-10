@@ -21,13 +21,30 @@ export async function submitRevue(data, token) {
   return res.json()
 }
 
-async function get(path, token) {
-  const res = await fetch(`${BASE}${path}`, { headers: authHeaders(token) })
-  if (!res.ok) throw new Error(`Erreur ${res.status}`)
-  return res.json()
+async function get(path, token, timeoutMs = 20000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(`${BASE}${path}`, { headers: authHeaders(token), signal: controller.signal })
+    if (!res.ok) throw new Error(`Erreur ${res.status}`)
+    return res.json()
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('La requête a expiré. Veuillez réessayer.')
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
-export const fetchDirections = () => get('/directions')
+export const fetchDirections              = ()         => get('/directions')
+export const fetchSuggestionsContraintes      = () => get('/analytics/valeurs-contraintes')
+export const fetchSuggestionsBesoins          = () => get('/analytics/valeurs-besoins-prioritaires')
+export const fetchSuggestionsBesoinsFormation = () => get('/analytics/valeurs-besoins-formation')
+export const fetchSuggestionsDifficultes      = () => get('/analytics/valeurs-difficultes')
+export const fetchSuggestionsInsuffisances    = () => get('/analytics/valeurs-insuffisances')
+export const fetchSuggestionsBesoinsPersonnel = () => get('/analytics/valeurs-besoins-personnel')
+export const fetchSuggestionsCausesRapports   = () => get('/analytics/valeurs-causes-rapports')
+export const fetchSuggestionsPostesVacants    = () => get('/analytics/valeurs-postes-vacants')
 
 export async function updateDirection(id, data, token) {
   const res = await fetch(`${BASE}/directions/${id}`, {
@@ -91,6 +108,15 @@ export function fetchRevues(params = {}, token) {
 
 export const fetchRevue = (id, token) => get(`/revues/${id}`, token)
 
+export async function deleteRevue(id, token) {
+  const res = await fetch(`${BASE}/revues/${id}`, {
+    method: 'DELETE',
+    headers: authHeaders(token),
+  })
+  if (!res.ok) { const err = await res.json(); throw new Error(err.message || 'Erreur lors de la suppression') }
+  return res.json()
+}
+
 export async function addDirection(data, token) {
   const res = await fetch(`${BASE}/directions`, {
     method: 'POST',
@@ -104,12 +130,12 @@ export async function addDirection(data, token) {
   return res.json()
 }
 
-// f = { dir, annee, trim }
+// f = { dir, debut, fin }  — debut/fin sont des chaînes "YYYY-MM"
 function analyticsQuery(f = {}) {
   const qs = new URLSearchParams()
   if (f.dir)   qs.set('direction', f.dir)
-  if (f.annee) qs.set('annee', f.annee)
-  if (f.trim)  qs.set('trimestre', f.trim)
+  if (f.debut) qs.set('debut', f.debut)
+  if (f.fin)   qs.set('fin', f.fin)
   const s = qs.toString()
   return s ? `?${s}` : ''
 }
@@ -151,6 +177,7 @@ export const fetchReunions = (token, params = {}) => {
 }
 
 export const fetchReunion = (id, token) => get(`/reunions/${id}`, token)
+export const fetchReunionSoumissions = (id, token) => get(`/reunions/${id}/soumissions`, token)
 
 export async function createReunion(data, token) {
   const res = await fetch(`${BASE}/reunions`, {
