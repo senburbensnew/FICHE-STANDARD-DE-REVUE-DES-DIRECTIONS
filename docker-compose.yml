@@ -34,6 +34,9 @@ services:
       KEYCLOAK_ADMIN: ${KC_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KC_ADMIN_PASS:-admin}
       KC_HTTP_PORT: 8180
+      KC_HTTP_RELATIVE_PATH: /kc
+      KC_HOSTNAME_STRICT: "false"
+      KC_PROXY: edge
     volumes:
       - keycloak_data:/opt/keycloak/data
     ports:
@@ -41,7 +44,7 @@ services:
     networks:
       - mef_net
     healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8180 && printf 'GET /realms/mef HTTP/1.1\\r\\nHost: localhost:8180\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"realm\"'"]
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8180 && printf 'GET /kc/realms/mef HTTP/1.1\\r\\nHost: localhost:8180\\r\\nConnection: close\\r\\n\\r\\n' >&3 && cat <&3 | grep -q '\"realm\"'"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -61,10 +64,10 @@ services:
       DB_FORCE: ${DB_FORCE:-false}
       MYSQL_USER: ${MYSQL_USER:-mef_user}
       MYSQL_PASS: ${MYSQL_PASS:-ChangeMe!2024}
-      CLIENT_URL: http://localhost
-      KEYCLOAK_URL: http://keycloak:8180
+      CLIENT_URL: http://frontend
+      KEYCLOAK_URL: http://keycloak:8180/kc
       KEYCLOAK_REALM: mef
-      KEYCLOAK_ISSUER: http://localhost:8180/realms/mef
+      KEYCLOAK_ISSUER: http://keycloak:8180/kc/realms/mef
       KC_ADMIN: ${KC_ADMIN:-admin}
       KC_ADMIN_PASS: ${KC_ADMIN_PASS:-admin}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-c0a0221c9a73aeb5bb14a4e329b63c95334ea33073e7f531f8d86cf490e73ef8}
@@ -74,8 +77,6 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-no-reply@mef.ht}
-    ports:
-      - "5001:5001"
     depends_on:
       mysql:
         condition: service_healthy
@@ -89,15 +90,27 @@ services:
     build:
       context: ./mef-form
       args:
-        VITE_API_URL: http://localhost:5001/api
-        VITE_KEYCLOAK_URL: http://localhost:8180
         VITE_KEYCLOAK_REALM: mef
         VITE_KEYCLOAK_CLIENT: mef-form
     container_name: mef_frontend
     restart: unless-stopped
+    depends_on:
+      - backend
+      - keycloak
+    networks:
+      - mef_net
+
+  # ── Nginx reverse proxy (TLS termination) ───────────────────────
+  nginx-proxy:
+    build:
+      context: ./nginx
+    container_name: mef_nginx
+    restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
+      - frontend
       - backend
       - keycloak
     networks:

@@ -2,8 +2,8 @@ import Keycloak from 'keycloak-js'
 import { createContext, useContext, useEffect, useState, createElement } from 'react'
 
 const keycloak = new Keycloak({
-  url:    import.meta.env.VITE_KEYCLOAK_URL   || 'http://localhost:8080',
-  realm:  import.meta.env.VITE_KEYCLOAK_REALM || 'mef',
+  url:      `${window.location.origin}/kc`,
+  realm:    import.meta.env.VITE_KEYCLOAK_REALM  || 'mef',
   clientId: import.meta.env.VITE_KEYCLOAK_CLIENT || 'mef-form',
 })
 
