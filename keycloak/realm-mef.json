@@ -112,14 +112,15 @@
   "users": [
     {
       "username": "admin.mef",
-      "email": "admin@mef.gouv.ht",
+      "email": "prubensmilorme@gmail.com",
       "firstName": "Admin",
       "lastName": "MEF",
       "enabled": true,
+      "requiredActions": ["UPDATE_PASSWORD"],
       "credentials": [
         {
           "type": "password",
-          "value": "Admin@1234",
+          "value": "password123",
           "temporary": true
         }
       ],

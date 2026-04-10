@@ -1,8 +1,16 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SectionTitle, FieldGroup, DynamicList } from '../components/FormField'
+import { fetchSuggestionsDifficultes } from '../api'
 
 export default function Step4Fonctionnement({ data, onChange, showErrors }) {
   const { t } = useTranslation()
+  const [sugDifficultes, setSugDifficultes] = useState([])
+
+  useEffect(() => {
+    fetchSuggestionsDifficultes().then(setSugDifficultes).catch(() => {})
+  }, [])
+
   return (
     <div>
       <SectionTitle number="IV" title={t('steps.s4.title')} />
@@ -46,6 +54,7 @@ export default function Step4Fonctionnement({ data, onChange, showErrors }) {
           onChange={(val) => onChange({ difficultesExecution: val })}
           showErrors={showErrors}
           placeholder={t('steps.s4.difficultesExecutionPlaceholder')}
+          suggestions={sugDifficultes}
         />
       </FieldGroup>
     </div>

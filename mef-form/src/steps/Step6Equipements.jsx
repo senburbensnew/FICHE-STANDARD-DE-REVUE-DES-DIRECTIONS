@@ -1,9 +1,17 @@
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SectionTitle, Field, FieldGroup, DynamicList } from '../components/FormField'
+import { fetchSuggestionsInsuffisances } from '../api'
 
 export default function Step6Equipements({ data, onChange, showErrors }) {
   const { t } = useTranslation()
   const f = { onChange, showErrors }
+  const [sugInsuffisances, setSugInsuffisances] = useState([])
+
+  useEffect(() => {
+    fetchSuggestionsInsuffisances().then(setSugInsuffisances).catch(() => {})
+  }, [])
+
   return (
     <div>
       <SectionTitle number="VI" title={t('steps.s6.title')} />
@@ -23,6 +31,7 @@ export default function Step6Equipements({ data, onChange, showErrors }) {
           onChange={(val) => onChange({ insuffisancesMaterielles: val })}
           showErrors={showErrors}
           placeholder={t('steps.s6.insuffisancesPlaceholder')}
+          suggestions={sugInsuffisances}
         />
       </FieldGroup>
     </div>

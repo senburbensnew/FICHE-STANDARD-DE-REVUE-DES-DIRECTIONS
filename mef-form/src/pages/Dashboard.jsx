@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import WordCloud from 'react-d3-cloud'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
@@ -30,9 +31,31 @@ const PIE_COLORS   = [C.blue, C.cyan, C.green, C.amber, C.purple, C.slate, C.red
 const STATUT_COLOR = { soumis: C.green, valide: C.blue, brouillon: C.red, 'Sans revue': C.amber }
 const STATUT_LABEL = { soumis: 'Soumises', valide: 'Validées', brouillon: 'En retard', 'Sans revue': 'En attente' }
 
+const CLOUD_PALETTE = [
+  '#7c3aed', '#2563eb', '#059669', '#b45309',
+  '#0891b2', '#be123c', '#0d9488', '#7c2d12',
+  '#1e40af', '#065f46', '#6d28d9', '#92400e',
+]
+
 const CY = new Date().getFullYear()
-const YEARS     = [CY, CY - 1, CY - 2, CY - 3]
-const QUARTERS  = [{ v: '1', l: 'T1 (Jan–Mar)' }, { v: '2', l: 'T2 (Avr–Juin)' }, { v: '3', l: 'T3 (Juil–Sep)' }, { v: '4', l: 'T4 (Oct–Déc)' }]
+const CM_PAD = String(new Date().getMonth() + 1).padStart(2, '0') // "01"–"12"
+const YEARS  = [CY, CY - 1, CY - 2, CY - 3]
+const MONTHS = [
+  { v: '01', l: 'Janvier' },  { v: '02', l: 'Février' },   { v: '03', l: 'Mars' },
+  { v: '04', l: 'Avril' },    { v: '05', l: 'Mai' },        { v: '06', l: 'Juin' },
+  { v: '07', l: 'Juillet' },  { v: '08', l: 'Août' },       { v: '09', l: 'Septembre' },
+  { v: '10', l: 'Octobre' },  { v: '11', l: 'Novembre' },   { v: '12', l: 'Décembre' },
+]
+// Valeurs par défaut : du 1er janvier au mois en cours
+const DEFAULT_DEBUT = `${CY}-01`
+const DEFAULT_FIN   = `${CY}-${CM_PAD}`
+
+// Formate "YYYY-MM" → "Janvier 2026"
+function fmtPeriode(ym) {
+  if (!ym) return ''
+  const [y, m] = ym.split('-')
+  return `${MONTHS.find(mo => mo.v === m)?.l ?? m} ${y}`
+}
 
 // ── CSV export utility ─────────────────────────────────────────────────────
 function downloadCSV(columns, rows, filename) {
@@ -133,27 +156,45 @@ function MultiPie({ data, nameKey = 'statut' }) {
   )
 }
 
-// Tag cloud for constraints (size proportional to frequency)
-function TagCloud({ data, textKey = 'contrainte' }) {
+// Word cloud — react-d3-cloud (d3-cloud spiral layout)
+function ContraintesCloud({ data }) {
+  const ref = useRef(null)
+  const [w, setW] = useState(480)
+
+  useEffect(() => {
+    if (!ref.current) return
+    const ro = new ResizeObserver(entries => {
+      const cw = Math.floor(entries[0].contentRect.width)
+      if (cw > 0) setW(cw)
+    })
+    ro.observe(ref.current)
+    return () => ro.disconnect()
+  }, [])
+
   if (!data?.length) return <Empty />
-  const max = Math.max(...data.map(d => d.total))
+
+  const vals   = data.map(d => d.total)
+  const maxVal = Math.max(...vals)
+  const minVal = Math.min(...vals)
+  const words  = data.map(d => ({ text: d.contrainte, value: d.total }))
+
   return (
-    <div className="flex flex-wrap gap-2 p-2">
-      {data.map((d, i) => {
-        const ratio = d.total / max
-        const fontSize = `${0.72 + ratio * 0.9}rem`
-        const opacity  = 0.55 + ratio * 0.45
-        return (
-          <span
-            key={i}
-            style={{ fontSize, opacity }}
-            className="inline-block bg-purple-100 text-purple-800 font-semibold px-2 py-1 rounded-full cursor-default hover:opacity-100 transition-opacity"
-            title={`${d.total} mention(s)`}
-          >
-            {d[textKey]}
-          </span>
-        )
-      })}
+    <div ref={ref} style={{ width: '100%', overflow: 'hidden' }}>
+      <WordCloud
+        data={words}
+        width={w}
+        height={310}
+        font="Inter, system-ui, sans-serif"
+        fontWeight="700"
+        fontSize={word => {
+          const t = maxVal === minVal ? 0.5 : (word.value - minVal) / (maxVal - minVal)
+          return Math.round(13 + t * 36) // 13 px → 49 px
+        }}
+        rotate={word => (word.text.length % 3 === 0 ? 90 : 0)}
+        padding={6}
+        spiral="archimedean"
+        fill={(word, i) => CLOUD_PALETTE[i % CLOUD_PALETTE.length]}
+      />
     </div>
   )
 }
@@ -321,7 +362,7 @@ function ExportMenu({ items }) {
   )
 }
 
-// FilterSelect — petit composant réutilisable pour les selects du header
+// FilterSelect — select simple pour la direction
 function FilterSelect({ id, label, value, onChange, children }) {
   return (
     <div className="flex items-center gap-2">
@@ -335,6 +376,28 @@ function FilterSelect({ id, label, value, onChange, children }) {
         className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300"
       >
         {children}
+      </select>
+    </div>
+  )
+}
+
+// MonthYearSelect — sélecteur mois + année (valeur "YYYY-MM" ou "")
+function MonthYearSelect({ label, value, onChange }) {
+  const [selYear, selMonth] = value ? value.split('-') : ['', '']
+  const update = (y, m) => onChange(y && m ? `${y}-${m}` : '')
+  const sel = 'text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-300'
+  return (
+    <div className="flex items-center gap-1.5">
+      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap shrink-0">
+        {label}
+      </label>
+      <select value={selMonth || ''} onChange={e => update(selYear || String(CY), e.target.value)} className={`${sel} w-32`}>
+        <option value="">Mois…</option>
+        {MONTHS.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
+      </select>
+      <select value={selYear || ''} onChange={e => update(e.target.value, selMonth || '')} className={`${sel} w-20`}>
+        <option value="">Année…</option>
+        {YEARS.map(y => <option key={y} value={String(y)}>{y}</option>)}
       </select>
     </div>
   )
@@ -373,11 +436,11 @@ export default function Dashboard() {
   // Section 6
   const [actions, setActions] = useState([])
 
-  // Filters
+  // Filters — default to January → current month of current year
   const [directions, setDirections]   = useState([])
-  const [selectedDir, setSelectedDir] = useState('')
-  const [selectedAnnee, setSelectedAnnee] = useState('')
-  const [selectedTrim, setSelectedTrim]   = useState('')
+  const [selectedDir,   setSelectedDir]   = useState('')
+  const [selectedDebut, setSelectedDebut] = useState(DEFAULT_DEBUT)
+  const [selectedFin,   setSelectedFin]   = useState(DEFAULT_FIN)
 
   useEffect(() => {
     fetchDirections()
@@ -385,17 +448,12 @@ export default function Dashboard() {
       .catch(() => {})
   }, [])
 
-  // Reset trimestre if année is cleared
-  useEffect(() => {
-    if (!selectedAnnee) setSelectedTrim('')
-  }, [selectedAnnee])
-
   useEffect(() => {
     setLoading(true)
     const f = {
       dir:   selectedDir   || null,
-      annee: selectedAnnee || null,
-      trim:  selectedTrim  || null,
+      debut: selectedDebut || null,
+      fin:   selectedFin   || null,
     }
     Promise.all([
       fetchOverview(token, f),
@@ -433,30 +491,34 @@ export default function Dashboard() {
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [token, selectedDir, selectedAnnee, selectedTrim])
+  }, [token, selectedDir, selectedDebut, selectedFin])
 
   const tauxConformite = conformite
     ? Math.round((conformite.avecRevue / (conformite.totalDirections || 1)) * 100)
     : null
 
-  // Conformité chart data: statuts from DB + synthetic "Sans revue" bar
-  const parStatutFull = conformite ? [
-    ...conformite.parStatut.map(d => ({
-      label: STATUT_LABEL[d.statut] ?? d.statut.charAt(0).toUpperCase() + d.statut.slice(1),
-      total: d.total,
-      _statut: d.statut,
-    })),
-    ...(conformite.sansRevue > 0 ? [{
-      label: 'En attente',
-      total: conformite.sansRevue,
-      _statut: 'Sans revue',
-    }] : []),
-  ] : []
+  // Conformité chart: group soumis+valide → "Soumises", brouillon → "En retard", sansRevue → "En attente"
+  const parStatutFull = conformite ? (() => {
+    const soumisTotal = conformite.parStatut
+      .filter(d => d.statut === 'soumis' || d.statut === 'valide')
+      .reduce((s, d) => s + d.total, 0)
+    const retardTotal = conformite.parStatut
+      .filter(d => d.statut === 'brouillon')
+      .reduce((s, d) => s + d.total, 0)
+    return [
+      ...(soumisTotal > 0  ? [{ label: 'Soumises',   total: soumisTotal,               _statut: 'soumis'     }] : []),
+      ...(retardTotal > 0  ? [{ label: 'En retard',  total: retardTotal,               _statut: 'brouillon'  }] : []),
+      ...(conformite.sansRevue > 0 ? [{ label: 'En attente', total: conformite.sansRevue, _statut: 'Sans revue' }] : []),
+    ]
+  })() : []
 
-  const hasActiveFilter = selectedDir || selectedAnnee
+  const hasActiveFilter = selectedDir || selectedDebut || selectedFin
 
-  const suffix = [selectedAnnee, selectedTrim ? `T${selectedTrim}` : '', selectedDir ? selectedDir.slice(0, 10) : '']
-    .filter(Boolean).join('_') || 'tout'
+  const suffix = [
+    selectedDebut ? selectedDebut.replace('-', '_') : '',
+    selectedFin   ? selectedFin.replace('-', '_')   : '',
+    selectedDir   ? selectedDir.slice(0, 10)        : '',
+  ].filter(Boolean).join('_') || 'tout'
 
   const exportItems = [
     {
@@ -560,49 +622,50 @@ export default function Dashboard() {
               ))}
             </FilterSelect>
 
-            {/* Année filter */}
-            <FilterSelect id="annee-filter" label="Année" value={selectedAnnee} onChange={setSelectedAnnee}>
-              <option value="">Toutes les années</option>
-              {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
-            </FilterSelect>
+            {/* Période couverte — début */}
+            <MonthYearSelect
+              label="Du"
+              value={selectedDebut}
+              onChange={v => { setSelectedDebut(v); if (v && selectedFin && v > selectedFin) setSelectedFin(v) }}
+            />
+            {/* Période couverte — fin */}
+            <MonthYearSelect
+              label="Au"
+              value={selectedFin}
+              onChange={v => { setSelectedFin(v); if (v && selectedDebut && v < selectedDebut) setSelectedDebut(v) }}
+            />
 
-            {/* Trimestre filter (only when année selected) */}
-            {selectedAnnee && (
-              <FilterSelect id="trim-filter" label="Trimestre" value={selectedTrim} onChange={setSelectedTrim}>
-                <option value="">Tous les trimestres</option>
-                {QUARTERS.map(q => <option key={q.v} value={q.v}>{q.l}</option>)}
-              </FilterSelect>
-            )}
-
-            {hasActiveFilter && (
-              <button
-                onClick={() => { setSelectedDir(''); setSelectedAnnee(''); setSelectedTrim('') }}
-                className="text-xs text-gray-400 hover:text-red-500 transition font-semibold border border-gray-200 rounded px-2 py-1"
-                title="Effacer tous les filtres"
-              >
-                ✕ Réinitialiser
-              </button>
-            )}
+            <button
+              onClick={() => { setSelectedDir(''); setSelectedDebut(DEFAULT_DEBUT); setSelectedFin(DEFAULT_FIN) }}
+              className="text-xs text-gray-400 hover:text-blue-600 transition font-semibold border border-gray-200 rounded px-2 py-1"
+              title="Revenir à la période en cours"
+            >
+              ↺ Période actuelle
+            </button>
 
             <ExportMenu items={exportItems} />
           </div>
         </div>
 
-        {hasActiveFilter && (
-          <div className="max-w-7xl mx-auto px-4 pb-2 flex flex-wrap gap-2">
-            {selectedDir && (
-              <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
-                Direction : {selectedDir}
-              </span>
-            )}
-            {selectedAnnee && (
-              <span className="inline-flex items-center gap-1.5 bg-indigo-100 text-indigo-800 text-xs font-semibold px-3 py-1 rounded-full">
-                Année : {selectedAnnee}
-                {selectedTrim && ` — ${QUARTERS.find(q => q.v === selectedTrim)?.l}`}
-              </span>
-            )}
-          </div>
-        )}
+        <div className="max-w-7xl mx-auto px-4 pb-2 flex flex-wrap gap-2">
+          {selectedDir && (
+            <span className="inline-flex items-center gap-1.5 bg-blue-100 text-blue-800 text-xs font-semibold px-3 py-1 rounded-full">
+              Direction : {selectedDir}
+              <button onClick={() => setSelectedDir('')} className="ml-1 opacity-60 hover:opacity-100">✕</button>
+            </span>
+          )}
+          {(selectedDebut || selectedFin) && (
+            <span className="inline-flex items-center gap-1.5 bg-indigo-100 text-indigo-800 text-xs font-semibold px-3 py-1 rounded-full">
+              Période :&nbsp;
+              {selectedDebut && selectedFin
+                ? `${fmtPeriode(selectedDebut)} → ${fmtPeriode(selectedFin)}`
+                : selectedDebut
+                  ? `à partir de ${fmtPeriode(selectedDebut)}`
+                  : `jusqu'à ${fmtPeriode(selectedFin)}`}
+              <button onClick={() => { setSelectedDebut(DEFAULT_DEBUT); setSelectedFin(DEFAULT_FIN) }} className="ml-1 opacity-60 hover:opacity-100">✕</button>
+            </span>
+          )}
+        </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-10">
@@ -619,69 +682,125 @@ export default function Dashboard() {
           <SectionHeader
             number="1"
             title="Vue d'ensemble et conformité des soumissions"
-            description="Nombre de revues soumises, statut par direction, évolution mensuelle"
+            description={`Revues soumises par rapport au nombre total de directions${selectedDebut || selectedFin ? ` — ${selectedDebut && selectedFin ? `${fmtPeriode(selectedDebut)} → ${fmtPeriode(selectedFin)}` : selectedDebut ? `à partir de ${fmtPeriode(selectedDebut)}` : `jusqu'à ${fmtPeriode(selectedFin)}`}` : ''}`}
           />
 
-          {/* KPI cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <StatCard
-              label="Total des revues"
-              value={overview?.total}
-              sub="dans la sélection"
-              color="blue"
-            />
-            <StatCard
-              label="Directions ayant soumis"
-              value={conformite ? `${conformite.avecRevue} / ${conformite.totalDirections}` : null}
-              sub={tauxConformite != null ? `${tauxConformite}% de conformité` : undefined}
-              color="green"
-              badge={tauxConformite != null
-                ? { text: `${tauxConformite}%`, cls: tauxConformite >= 80 ? 'bg-green-200 text-green-900' : tauxConformite >= 50 ? 'bg-amber-200 text-amber-900' : 'bg-red-200 text-red-900' }
-                : undefined}
-            />
-            <StatCard
-              label="Sans revue soumise"
-              value={conformite?.sansRevue}
-              sub="directions en attente"
-              color={conformite?.sansRevue > 0 ? 'red' : 'green'}
-            />
-            <StatCard
-              label="Taux disponibilité RH"
-              value={overview?.tauxRH != null ? `${overview.tauxRH}%` : null}
-              sub="disponible / en poste"
-              color="amber"
-            />
+          {/* Conformité prominente + KPI cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+            {/* Indicateur principal : ratio soumissions / directions */}
+            <div className="lg:col-span-1 bg-white rounded-xl border border-gray-200 shadow-sm p-5 flex flex-col gap-3">
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Taux de conformité</p>
+              {loading ? (
+                <div className="h-20 animate-pulse bg-gray-100 rounded-lg" />
+              ) : conformite ? (
+                <>
+                  <div className="flex items-end gap-2">
+                    <span className={`text-5xl font-extrabold leading-none ${tauxConformite >= 80 ? 'text-green-700' : tauxConformite >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+                      {tauxConformite}%
+                    </span>
+                    <span className="text-sm text-gray-500 pb-1">
+                      {conformite.avecRevue} / {conformite.totalDirections} directions
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                    <div
+                      className={`h-3 rounded-full transition-all duration-700 ${tauxConformite >= 80 ? 'bg-green-500' : tauxConformite >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
+                      style={{ width: `${tauxConformite}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-400 mt-1">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
+                      {conformite.avecRevue} soumises
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 inline-block" />
+                      {conformite.sansRevue} en attente
+                    </span>
+                  </div>
+                </>
+              ) : <Empty />}
+            </div>
+
+            {/* KPI secondaires */}
+            <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <StatCard
+                label="Total des revues"
+                value={overview?.total}
+                sub="dans la sélection"
+                color="blue"
+              />
+              <StatCard
+                label="Directions actives"
+                value={overview?.directionsActives}
+                sub="ayant soumis"
+                color="green"
+              />
+              <StatCard
+                label="Sans revue"
+                value={conformite?.sansRevue}
+                sub="directions en attente"
+                color={conformite?.sansRevue > 0 ? 'red' : 'green'}
+              />
+              <StatCard
+                label="Soumises ce mois"
+                value={overview?.ceMois}
+                sub="nouvelles soumissions"
+                color="slate"
+              />
+              <StatCard
+                label="Taux disponibilité RH"
+                value={overview?.tauxRH != null ? `${overview.tauxRH}%` : null}
+                sub="disponible / en poste"
+                color="amber"
+              />
+            </div>
           </div>
 
-          {/* Statut des soumissions (Soumises / Validées / Brouillons / Sans revue) + évolution mensuelle */}
+          {/* Diagramme à barres : statuts (Soumises / En retard / En attente) + courbe de tendance */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard title="Statut des soumissions" loading={loading}>
+            <ChartCard
+              title={`Statut des soumissions${selectedDebut || selectedFin ? ` — ${selectedDebut && selectedFin ? `${fmtPeriode(selectedDebut)} → ${fmtPeriode(selectedFin)}` : selectedDebut ? `à partir de ${fmtPeriode(selectedDebut)}` : `jusqu'à ${fmtPeriode(selectedFin)}`}` : ''}`}
+              loading={loading}
+            >
               {parStatutFull.length ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart data={parStatutFull} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <ResponsiveContainer width="100%" height={240}>
+                  <BarChart data={parStatutFull} margin={{ top: 20, right: 20, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                    <XAxis dataKey="label" tick={{ fontSize: 13, fontWeight: 600 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v) => [`${v} revue(s) / direction(s)`, 'Total']} />
-                    <Bar dataKey="total" radius={[4, 4, 0, 0]}>
+                    <Tooltip
+                      formatter={(v, _, { payload }) => [`${v} direction(s)`, payload._statut === 'soumis' ? 'Soumises / Validées' : payload.label]}
+                      cursor={{ fill: '#f8fafc' }}
+                    />
+                    <Bar dataKey="total" radius={[6, 6, 0, 0]} maxBarSize={80}
+                      label={{ position: 'top', fontSize: 14, fontWeight: 700, fill: '#374151' }}>
                       {parStatutFull.map((d, i) => (
                         <Cell key={i} fill={STATUT_COLOR[d._statut] ?? C.slate} />
                       ))}
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
-              ) : <Empty />}
+              ) : (
+                <div className="flex flex-col items-center justify-center py-10 gap-2">
+                  <p className="text-sm text-gray-400">Aucune donnée pour cette période</p>
+                  <p className="text-xs text-gray-300">Essayez de modifier le filtre "Période couverte"</p>
+                </div>
+              )}
             </ChartCard>
 
-            <ChartCard title="Soumissions par mois (12 derniers mois)" loading={loading}>
+            <ChartCard title="Tendance des soumissions (12 derniers mois)" loading={loading}>
               {parMois.length ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={parMois} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <ResponsiveContainer width="100%" height={240}>
+                  <LineChart data={parMois} margin={{ top: 10, right: 20, left: 0, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                     <XAxis dataKey="mois" tick={{ fontSize: 11 }} />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
                     <Tooltip formatter={(v) => [`${v} revue(s)`, 'Soumissions']} />
-                    <Line type="monotone" dataKey="total" stroke={C.cyan} strokeWidth={2.5} dot={{ r: 4, fill: C.cyan }} activeDot={{ r: 6 }} />
+                    <Line type="monotone" dataKey="total" stroke={C.cyan} strokeWidth={2.5}
+                      dot={{ r: 4, fill: C.cyan }} activeDot={{ r: 6 }} />
                   </LineChart>
                 </ResponsiveContainer>
               ) : <Empty />}
@@ -696,70 +815,177 @@ export default function Dashboard() {
           <SectionHeader
             number="2"
             title="Ressources humaines"
-            description="Écart effectifs théorique / disponible, top 5 besoins en formation, postes vacants"
+            description="Analyse des écarts d'effectifs par direction, besoins prioritaires en formation, postes vacants"
           />
 
-          <ChartCard title="Effectif théorique vs réellement disponible par direction" loading={loading}>
-            {effectifs.length ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={effectifs.map(d => ({ ...d, dir: SHORT_DIR(d.direction) }))}
-                  margin={{ top: 5, right: 20, left: 0, bottom: 80 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                  <XAxis dataKey="dir" tick={{ fontSize: 10, angle: -40, textAnchor: 'end' }} interval={0} />
-                  <YAxis allowDecimals={false} tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    labelFormatter={(l) => effectifs.find(d => SHORT_DIR(d.direction) === l)?.direction ?? l}
-                    formatter={(v, n) => [`${v} agents`, n === 'theorique' ? 'Théorique' : 'Disponible']}
-                  />
-                  <Legend formatter={(v) => v === 'theorique' ? 'Effectif théorique' : 'Effectif disponible'} />
-                  <Bar dataKey="theorique"  fill={C.blueLight} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="disponible" fill={C.blue}      radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <Empty />}
+          {/* Graphique 1 — Analyse de l'écart : théorique / disponible / écart */}
+          <ChartCard title="Analyse de l'écart de personnel — Effectif théorique vs réellement disponible" loading={loading}>
+            {effectifs.length ? (() => {
+              const data = effectifs.map(d => ({
+                dir:        SHORT_DIR(d.direction),
+                fullDir:    d.direction,
+                theorique:  d.theorique,
+                disponible: d.disponible,
+                ecart:      Math.max(0, d.theorique - d.disponible),
+                taux:       d.theorique > 0 ? Math.round(d.disponible * 100 / d.theorique) : 0,
+              }))
+              const maxEcart = Math.max(...data.map(d => d.ecart), 1)
+              return (
+                <div className="space-y-3">
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={data} margin={{ top: 16, right: 24, left: 0, bottom: 90 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                      <XAxis dataKey="dir" tick={{ fontSize: 10, angle: -40, textAnchor: 'end' }} interval={0} />
+                      <YAxis allowDecimals={false} tick={{ fontSize: 11 }} label={{ value: 'Agents', angle: -90, position: 'insideLeft', fontSize: 10, fill: '#94a3b8' }} />
+                      <Tooltip
+                        cursor={{ fill: '#f8fafc' }}
+                        labelFormatter={(l, p) => p?.[0]?.payload?.fullDir ?? l}
+                        formatter={(v, name) => {
+                          if (name === 'theorique')  return [`${v} agents`, 'Effectif théorique']
+                          if (name === 'disponible') return [`${v} agents`, 'Effectif disponible']
+                          if (name === 'ecart')      return [`${v} agents`, 'Écart (manquants)']
+                          return [v, name]
+                        }}
+                        content={({ active, payload, label }) => {
+                          if (!active || !payload?.length) return null
+                          const d = payload[0]?.payload
+                          return (
+                            <div className="bg-white border border-gray-200 rounded-xl shadow-lg p-3 text-xs space-y-1 min-w-[180px]">
+                              <p className="font-bold text-gray-800 text-sm mb-2">{d?.fullDir}</p>
+                              <div className="flex justify-between gap-4"><span className="text-blue-400">Théorique</span><span className="font-bold">{d?.theorique} agents</span></div>
+                              <div className="flex justify-between gap-4"><span className="text-blue-700">Disponible</span><span className="font-bold">{d?.disponible} agents</span></div>
+                              <div className="flex justify-between gap-4"><span className="text-red-500">Écart</span><span className="font-bold text-red-600">−{d?.ecart} agents</span></div>
+                              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between">
+                                <span className="text-gray-500">Taux de couverture</span>
+                                <span className={`font-extrabold ${d?.taux >= 90 ? 'text-green-600' : d?.taux >= 70 ? 'text-amber-600' : 'text-red-600'}`}>{d?.taux}%</span>
+                              </div>
+                            </div>
+                          )
+                        }}
+                      />
+                      <Legend
+                        formatter={(v) => v === 'theorique' ? 'Effectif théorique' : v === 'disponible' ? 'Effectif disponible' : 'Écart (postes manquants)'}
+                        wrapperStyle={{ fontSize: 11, paddingTop: 8 }}
+                      />
+                      <Bar dataKey="theorique"  fill={C.blueLight} radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="disponible" fill={C.blue}      radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="ecart"      fill={C.red}       radius={[3, 3, 0, 0]} maxBarSize={28} opacity={0.75} />
+                    </BarChart>
+                  </ResponsiveContainer>
+
+                  {/* Taux de couverture par direction — mini indicateurs */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 pt-1">
+                    {data.sort((a, b) => a.taux - b.taux).map((d, i) => (
+                      <div key={i} className="bg-gray-50 rounded-lg px-3 py-2">
+                        <p className="text-xs text-gray-500 truncate" title={d.fullDir}>{SHORT_DIR(d.fullDir)}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className={`h-1.5 rounded-full ${d.taux >= 90 ? 'bg-green-500' : d.taux >= 70 ? 'bg-amber-500' : 'bg-red-500'}`}
+                              style={{ width: `${Math.min(d.taux, 100)}%` }}
+                            />
+                          </div>
+                          <span className={`text-xs font-bold shrink-0 ${d.taux >= 90 ? 'text-green-600' : d.taux >= 70 ? 'text-amber-600' : 'text-red-600'}`}>
+                            {d.taux}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })() : <Empty />}
           </ChartCard>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ChartCard title="Top 5 besoins en formation" loading={loading}>
+
+            {/* Graphique 2 — Top 5 besoins prioritaires en formation */}
+            <ChartCard title="Top 5 besoins prioritaires en formation" loading={loading}>
               {besoinFormation.length ? (
-                <ResponsiveContainer width="100%" height={220}>
-                  <BarChart
-                    data={besoinFormation}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 180, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="besoin" tick={{ fontSize: 10 }} width={180} />
-                    <Tooltip formatter={(v) => [`${v} mention(s)`, 'Fréquence']} />
-                    <Bar dataKey="total" fill={C.teal} radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="space-y-2.5 py-1">
+                  {besoinFormation.map((d, i) => {
+                    const max   = besoinFormation[0]?.total || 1
+                    const pct   = Math.round(d.total * 100 / max)
+                    const RANK_COLORS = ['bg-amber-500', 'bg-blue-500', 'bg-teal-500', 'bg-purple-500', 'bg-slate-400']
+                    return (
+                      <div key={i} className="group">
+                        <div className="flex items-center gap-3 mb-1">
+                          <span className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-white text-xs font-bold ${RANK_COLORS[i] ?? 'bg-slate-400'}`}>
+                            {i + 1}
+                          </span>
+                          <p className="text-xs text-gray-700 font-medium flex-1 truncate" title={d.besoin_formation ?? d.besoin}>
+                            {d.besoin_formation ?? d.besoin}
+                          </p>
+                          <span className="text-xs font-bold text-gray-500 shrink-0">{d.total}</span>
+                        </div>
+                        <div className="ml-8 bg-gray-100 rounded-full h-2 overflow-hidden">
+                          <div
+                            className={`h-2 rounded-full transition-all duration-500 ${RANK_COLORS[i] ?? 'bg-slate-400'}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               ) : <Empty />}
             </ChartCard>
 
-            <ChartCard title="Postes vacants par direction" loading={loading}>
-              {postesVacants.length ? (
-                <div className="overflow-auto max-h-56">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-xs text-gray-500 uppercase border-b border-gray-100">
-                        <th className="text-left py-1.5 pr-4 font-semibold">Direction</th>
-                        <th className="text-right py-1.5 font-semibold">Postes vacants</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {postesVacants.map((d, i) => (
-                        <tr key={i} className="border-b border-gray-50 hover:bg-gray-50">
-                          <td className="py-1.5 pr-4 text-gray-700">{d.direction}</td>
-                          <td className="py-1.5 text-right font-bold text-red-600">{d.postesVacants}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {/* Liste — Postes vacants par structure */}
+            <ChartCard title="Postes vacants par structure" loading={loading}>
+              {postesVacants.length ? (() => {
+                const maxV = Math.max(...postesVacants.map(d => d.postesVacants), 1)
+                const total = postesVacants.reduce((s, d) => s + d.postesVacants, 0)
+                return (
+                  <div className="flex flex-col gap-0">
+                    <div className="overflow-auto" style={{ maxHeight: 260 }}>
+                      <table className="w-full text-sm">
+                        <thead className="sticky top-0 bg-white z-10">
+                          <tr className="text-xs text-gray-400 uppercase border-b border-gray-100">
+                            <th className="text-left py-2 pr-3 font-semibold">Structure</th>
+                            <th className="py-2 font-semibold w-32">Occupation</th>
+                            <th className="text-right py-2 font-semibold">Vacants</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {postesVacants.map((d, i) => {
+                            const sev = d.postesVacants / maxV
+                            const color = sev > 0.66 ? 'bg-red-500'  : sev > 0.33 ? 'bg-amber-400' : 'bg-yellow-300'
+                            const badge = sev > 0.66 ? 'bg-red-100 text-red-700' : sev > 0.33 ? 'bg-amber-100 text-amber-700' : 'bg-yellow-50 text-yellow-700'
+                            return (
+                              <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                                <td className="py-2 pr-3 text-gray-700 text-xs">{d.direction}</td>
+                                <td className="py-2 pr-2">
+                                  <div className="bg-gray-100 rounded-full h-2 overflow-hidden w-full">
+                                    <div className={`h-2 rounded-full ${color}`} style={{ width: `${Math.round(sev * 100)}%` }} />
+                                  </div>
+                                </td>
+                                <td className="py-2 text-right">
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badge}`}>
+                                    {d.postesVacants}
+                                  </span>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t border-gray-100 mt-1">
+                      <span className="text-xs text-gray-400">{postesVacants.length} structure{postesVacants.length > 1 ? 's' : ''} concernée{postesVacants.length > 1 ? 's' : ''}</span>
+                      <span className="text-sm font-extrabold text-red-600">{total} poste{total > 1 ? 's' : ''} vacant{total > 1 ? 's' : ''}</span>
+                    </div>
+                  </div>
+                )
+              })() : (
+                <div className="flex flex-col items-center justify-center py-10 gap-1">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-green-600 font-semibold">Aucun poste vacant signalé</p>
                 </div>
-              ) : (
-                <p className="text-sm text-green-600 text-center py-10 font-medium">Aucun poste vacant signalé</p>
               )}
             </ChartCard>
           </div>
@@ -893,23 +1119,44 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <ChartCard title="Contraintes majeures les plus fréquemment citées" loading={loading}>
-              <TagCloud data={contraintes} textKey="contrainte" />
+              <ContraintesCloud data={contraintes} />
             </ChartCard>
 
-            <ChartCard title="Fréquence des contraintes (top 10)" loading={loading}>
+            <ChartCard title="Top 10 — Fréquence des contraintes" loading={loading}>
               {contraintes.length ? (
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart
-                    data={contraintes.slice(0, 10)}
-                    layout="vertical"
-                    margin={{ top: 5, right: 30, left: 200, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" allowDecimals={false} tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="contrainte" tick={{ fontSize: 10 }} width={200} />
-                    <Tooltip formatter={(v) => [`${v} direction(s)`, 'Fréquence']} />
-                    <Bar dataKey="total" fill={C.purple} radius={[0, 4, 4, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                <div className="space-y-2.5 py-1">
+                  {contraintes.slice(0, 10).map((d, i) => {
+                    const max   = contraintes[0]?.total || 1
+                    const pct   = Math.round((d.total / max) * 100)
+                    const color = CLOUD_PALETTE[i % CLOUD_PALETTE.length]
+                    return (
+                      <div key={i} className="flex items-center gap-2.5">
+                        <span
+                          className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-extrabold shadow-sm"
+                          style={{ backgroundColor: color }}
+                        >
+                          {i + 1}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-baseline gap-2 mb-1">
+                            <span className="text-xs text-gray-700 font-medium leading-snug truncate" title={d.contrainte}>
+                              {d.contrainte.length > 48 ? d.contrainte.slice(0, 48) + '…' : d.contrainte}
+                            </span>
+                            <span className="text-xs font-extrabold shrink-0" style={{ color }}>
+                              {d.total}×
+                            </span>
+                          </div>
+                          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-1.5 rounded-full transition-all duration-700"
+                              style={{ width: `${pct}%`, backgroundColor: color }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               ) : <Empty />}
             </ChartCard>
           </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { SectionTitle, DateField, SearchableSelect } from '../components/FormField'
+import { SectionTitle, DateField, MonthField, SearchableSelect } from '../components/FormField'
 import { fetchDirections, fetchUsersByDirection } from '../api'
 
 function SubGroup({ title, children }) {
@@ -40,13 +40,15 @@ export default function Step1Identification({
 
   useEffect(() => { fetchDirections().then(setDirections).catch(() => {}) }, [])
 
-  // Auto-select the user's direction when directions load (only once, only if not already set)
+  // Auto-select the user's direction when directions load.
+  // When userDirectionId is set we always enforce it — ignoring any stale localStorage value.
   useEffect(() => {
     if (didAutoSelect.current || !userDirectionId || directions.length === 0) return
     didAutoSelect.current = true
-    if (data.intituleDirection) return // already set (e.g. from localStorage)
     const dir = directions.find(d => String(d.direction_id) === String(userDirectionId))
     if (!dir) return
+    // Only re-apply if the stored direction doesn't already match (avoids unnecessary resets)
+    if (data.intituleDirection === dir.nom_direction) return
     const prefill = { intituleDirection: dir.nom_direction }
     if (dir.localisation_siege)         prefill.localisation            = dir.localisation_siege
     if (dir.mission_principale)         prefill.missionPrincipale       = dir.mission_principale
@@ -83,13 +85,15 @@ export default function Step1Identification({
     return full || u.username
   }
 
-  // Auto-select current user once direction users are loaded
+  // Auto-select current user once direction users are loaded.
+  // Always enforce when currentUser is known — overrides stale localStorage.
   const didAutoSelectUser = useRef(false)
   useEffect(() => {
     if (didAutoSelectUser.current || !currentUser || directionUsers.length === 0) return
-    if (data.responsable) return // already set
     const match = directionUsers.find(u => u.email && u.email === currentUser.email)
     if (!match) return
+    // Only re-apply if the stored value doesn't already match
+    if (data.responsable === displayName(match)) return
     didAutoSelectUser.current = true
     const updates = { responsable: displayName(match) }
     if (match.attributes?.fonction?.[0])  updates.fonction       = match.attributes.fonction[0]
@@ -214,12 +218,12 @@ export default function Step1Identification({
             const errReunion= showErrors && fin && reunion && fin >= reunion  ? t('steps.s1.errReunionAvantFin')  : null
             return (
               <>
-                <DateField label={t('steps.s1.periodeDebut')} name="periodeDebut" value={debut}
+                <MonthField label={t('steps.s1.periodeDebut')} name="periodeDebut" value={debut}
                   onChange={onChange} showErrors={showErrors} disabled={locked} errorMsg={errDebut} />
-                <DateField label={t('steps.s1.periodeFin')}   name="periodeFin"   value={fin}
+                <MonthField label={t('steps.s1.periodeFin')}   name="periodeFin"   value={fin}
                   onChange={onChange} showErrors={showErrors} disabled={locked} errorMsg={errFin} />
                 <DateField label={t('steps.s1.dateReunion')}  name="dateReunion"  value={reunion}
-                  onChange={onChange} showErrors={showErrors} disabled={locked} errorMsg={errReunion} />
+                  onChange={onChange} showErrors={showErrors} disabled={locked} errorMsg={errReunion} minDate={new Date()} />
               </>
             )
           })()}

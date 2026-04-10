@@ -28,7 +28,48 @@ export function SectionTitle({ number, title }) {
   )
 }
 
-export function DateField({ label, name, value, onChange, showErrors = false, required = true, disabled = false, errorMsg = null }) {
+export function MonthField({ label, name, value, onChange, showErrors = false, required = true, disabled = false, errorMsg = null }) {
+  const { t } = useTranslation()
+  const isEmpty = required && showErrors && !value && !disabled
+  const hasError = isEmpty || !!errorMsg
+
+  const triggerCls = [
+    'w-full border rounded-lg px-3 py-2 text-sm text-left transition focus:outline-none focus:ring-2 focus:border-transparent',
+    disabled
+      ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+      : hasError
+        ? 'border-red-400 bg-red-50 focus:ring-red-400 cursor-pointer'
+        : 'border-gray-300 bg-white text-gray-800 focus:ring-blue-500 cursor-pointer',
+  ].join(' ')
+
+  return (
+    <div className="grid md:grid-cols-5 gap-2 items-start py-3 border-b border-gray-100 last:border-0">
+      <div className="md:col-span-2 pt-2 leading-snug">
+        <label className="text-sm font-semibold text-gray-700">
+          {label}
+          {required && <span className="ml-0.5 text-red-500">*</span>}
+        </label>
+      </div>
+      <div className="md:col-span-3">
+        <DatePicker
+          locale="fr"
+          dateFormat="MM/yyyy"
+          selected={toDate(value)}
+          onChange={date => !disabled && onChange({ [name]: date ? format(date, 'yyyy-MM-dd') : '' })}
+          showMonthYearPicker
+          placeholderText="MM/AAAA"
+          className={triggerCls}
+          wrapperClassName="w-full"
+          disabled={disabled}
+        />
+        {isEmpty && <p className="text-xs text-red-500 mt-1">{t('field.required')}</p>}
+        {!isEmpty && errorMsg && <p className="text-xs text-red-500 mt-1">{errorMsg}</p>}
+      </div>
+    </div>
+  )
+}
+
+export function DateField({ label, name, value, onChange, showErrors = false, required = true, disabled = false, errorMsg = null, minDate = null }) {
   const { t } = useTranslation()
   const isEmpty = required && showErrors && !value && !disabled
   const hasError = isEmpty || !!errorMsg
@@ -64,6 +105,7 @@ export function DateField({ label, name, value, onChange, showErrors = false, re
           dropdownMode="select"
           yearDropdownItemNumber={10}
           disabled={disabled}
+          minDate={minDate}
         />
         {isEmpty && <p className="text-xs text-red-500 mt-1">{t('field.required')}</p>}
         {!isEmpty && errorMsg && <p className="text-xs text-red-500 mt-1">{errorMsg}</p>}
@@ -298,67 +340,165 @@ export function SubGroup({ title, children }) {
   )
 }
 
+// ── Combo item avec autocomplete (utilisé par DynamicList quand suggestions fournies) ──
+function ComboItem({ value, onChange, onRemove, suggestions, placeholder, hasError, removeTitle }) {
+  const [open, setOpen] = useState(false)
+  const [pos,  setPos]  = useState({ top: 0, left: 0, width: 0 })
+  const inputRef = useRef(null)
+  const dropRef  = useRef(null)
+
+  const filtered = value.trim()
+    ? suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()))
+    : suggestions.slice(0, 10)
+  const isNew = value.trim() && !suggestions.includes(value.trim())
+
+  function openDrop() {
+    if (inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect()
+      setPos({ top: r.bottom + 4, left: r.left, width: r.width })
+    }
+    setOpen(true)
+  }
+
+  return (
+    <div className="flex gap-2">
+      <div className="flex-1 relative min-w-0">
+        <input
+          ref={inputRef}
+          type="text"
+          value={value}
+          onChange={e => { onChange(e.target.value); openDrop() }}
+          onFocus={openDrop}
+          onBlur={e => { if (!dropRef.current?.contains(e.relatedTarget)) setOpen(false) }}
+          onKeyDown={e => { if (e.key === 'Escape') setOpen(false) }}
+          placeholder={placeholder}
+          autoComplete="off"
+          className={`w-full border rounded-lg px-3 py-2 ${isNew ? 'pr-16' : 'pr-3'} text-sm transition focus:outline-none focus:ring-2 focus:border-transparent ${
+            hasError ? 'border-red-400 bg-red-50 focus:ring-red-400' : 'border-gray-300 text-gray-800 focus:ring-blue-500'
+          }`}
+        />
+        {isNew && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-full pointer-events-none">
+            Nouveau
+          </span>
+        )}
+        {open && filtered.length > 0 && (
+          <div
+            ref={dropRef}
+            style={{ position: 'fixed', top: pos.top, left: pos.left, width: pos.width, zIndex: 9999, maxHeight: 220 }}
+            className="bg-white border border-gray-200 rounded-lg shadow-2xl overflow-hidden"
+          >
+            <div className="px-3 py-1.5 text-[10px] font-semibold text-gray-400 uppercase tracking-wide bg-gray-50 border-b border-gray-100">
+              Déjà utilisé dans les revues passées
+            </div>
+            <div className="overflow-auto" style={{ maxHeight: 182 }}>
+              {filtered.map((s, i) => {
+                const q   = value.toLowerCase()
+                const idx = s.toLowerCase().indexOf(q)
+                return (
+                  <button
+                    key={i}
+                    type="button"
+                    tabIndex={0}
+                    onMouseDown={e => e.preventDefault()}
+                    onClick={() => { onChange(s); setOpen(false) }}
+                    className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none transition-colors"
+                  >
+                    {idx >= 0 && value.trim()
+                      ? <>{s.slice(0, idx)}<span className="font-bold text-blue-700">{s.slice(idx, idx + value.length)}</span>{s.slice(idx + value.length)}</>
+                      : s}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="shrink-0 w-8 h-8 mt-0.5 flex items-center justify-center rounded-md border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 transition"
+        title={removeTitle}
+      >
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+        </svg>
+      </button>
+    </div>
+  )
+}
+
 export function DynamicList({
   label, name, value = [''], onChange,
   showErrors = false, required = true,
   placeholder = '', maxItems = 20,
+  suggestions = [],          // ← nouveau : liste de suggestions (tableau de strings)
 }) {
   const { t } = useTranslation()
   const items = Array.isArray(value) && value.length > 0 ? value : ['']
   const hasError = required && showErrors && !items.some(v => v && v.trim())
 
   function update(idx, val) {
-    const next = [...items]
-    next[idx] = val
-    onChange(next)
+    const next = [...items]; next[idx] = val; onChange(next)
   }
-
   function add() {
     if (items.length >= maxItems) return
     onChange([...items, ''])
   }
-
   function remove(idx) {
     if (items.length <= 1) { onChange(['']); return }
-    const next = items.filter((_, i) => i !== idx)
-    onChange(next)
+    onChange(items.filter((_, i) => i !== idx))
   }
+
+  const ph = placeholder || t('field.addEntry')
 
   return (
     <div className="py-3 border-b border-gray-100 last:border-0">
       <div className="grid md:grid-cols-5 gap-2 items-start">
         <div className="md:col-span-2 pt-2 leading-snug">
           <label className="text-sm font-semibold text-gray-700">
-            {label}
-            {required && <span className="ml-0.5 text-red-500">*</span>}
+            {label}{required && <span className="ml-0.5 text-red-500">*</span>}
           </label>
         </div>
         <div className="md:col-span-3 space-y-2">
-          {items.map((item, idx) => (
-            <div key={idx} className="flex gap-2">
-              <input
-                type="text"
+          {items.map((item, idx) =>
+            suggestions.length > 0 ? (
+              <ComboItem
+                key={idx}
                 value={item}
-                onChange={e => update(idx, e.target.value)}
-                placeholder={placeholder || t('field.addEntry')}
-                className={`flex-1 border rounded-lg px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:border-transparent ${
-                  hasError && !item.trim()
-                    ? 'border-red-400 bg-red-50 focus:ring-red-400'
-                    : 'border-gray-300 text-gray-800 focus:ring-blue-500'
-                }`}
+                onChange={val => update(idx, val)}
+                onRemove={() => remove(idx)}
+                suggestions={suggestions}
+                placeholder={ph}
+                hasError={hasError && !item.trim()}
+                removeTitle={t('field.remove')}
               />
-              <button
-                type="button"
-                onClick={() => remove(idx)}
-                className="shrink-0 w-8 h-8 mt-0.5 flex items-center justify-center rounded-md border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 transition"
-                title={t('field.remove')}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                </svg>
-              </button>
-            </div>
-          ))}
+            ) : (
+              <div key={idx} className="flex gap-2">
+                <input
+                  type="text"
+                  value={item}
+                  onChange={e => update(idx, e.target.value)}
+                  placeholder={ph}
+                  className={`flex-1 border rounded-lg px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:border-transparent ${
+                    hasError && !item.trim()
+                      ? 'border-red-400 bg-red-50 focus:ring-red-400'
+                      : 'border-gray-300 text-gray-800 focus:ring-blue-500'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => remove(idx)}
+                  className="shrink-0 w-8 h-8 mt-0.5 flex items-center justify-center rounded-md border border-gray-300 text-gray-400 hover:bg-red-50 hover:text-red-500 hover:border-red-300 transition"
+                  title={t('field.remove')}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                  </svg>
+                </button>
+              </div>
+            )
+          )}
           {items.length < maxItems && (
             <button
               type="button"
@@ -371,9 +511,7 @@ export function DynamicList({
               {t('field.addEntry')}
             </button>
           )}
-          {hasError && (
-            <p className="text-xs text-red-500">{t('field.entryRequired')}</p>
-          )}
+          {hasError && <p className="text-xs text-red-500">{t('field.entryRequired')}</p>}
         </div>
       </div>
     </div>

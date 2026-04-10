@@ -11,18 +11,28 @@ const KC_ADMIN = process.env.KC_ADMIN       || 'admin'
 const KC_PASS  = process.env.KC_ADMIN_PASS  || 'admin'
 
 async function getAdminToken() {
-  const res = await fetch(`${KC_URL}/realms/master/protocol/openid-connect/token`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'password',
-      client_id:  'admin-cli',
-      username:   KC_ADMIN,
-      password:   KC_PASS,
-    }),
-  })
-  if (!res.ok) throw new Error(`Keycloak admin auth failed: ${res.status}`)
-  return (await res.json()).access_token
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch(`${KC_URL}/realms/master/protocol/openid-connect/token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        grant_type: 'password',
+        client_id:  'admin-cli',
+        username:   KC_ADMIN,
+        password:   KC_PASS,
+      }),
+      signal: controller.signal,
+    })
+    if (!res.ok) throw new Error(`Keycloak admin auth failed: ${res.status}`)
+    return (await res.json()).access_token
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Keycloak est inaccessible (timeout). Vérifiez que le service est démarré.')
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 async function getRoleRepresentation(adminToken, roleName) {
@@ -98,7 +108,7 @@ router.get('/users', async (req, res) => {
 router.post('/users', async (req, res) => {
   try {
     const adminToken = await getAdminToken()
-    const { username, firstName, lastName, email, enabled = true, password, role, fonction, telephone, direction_id } = req.body
+    const { username, firstName, lastName, email, enabled = true, password, role, fonction, telephone, direction_id, nif, ninu } = req.body
 
     const kcRes = await fetch(`${KC_URL}/admin/realms/${KC_REALM}/users`, {
       method: 'POST',
@@ -110,6 +120,8 @@ router.post('/users', async (req, res) => {
           fonction:     [fonction     || ''],
           telephone:    [telephone    || ''],
           direction_id: [direction_id || ''],
+          nif:          [nif          || ''],
+          ninu:         [ninu         || ''],
         },
         credentials: password
           ? [{ type: 'password', value: password, temporary: true }]
@@ -138,7 +150,7 @@ router.post('/users', async (req, res) => {
 router.put('/users/:id', async (req, res) => {
   try {
     const adminToken = await getAdminToken()
-    const { username, firstName, lastName, email, enabled, password, role, fonction, telephone, direction_id } = req.body
+    const { username, firstName, lastName, email, enabled, password, role, fonction, telephone, direction_id, nif, ninu } = req.body
     const { id } = req.params
 
     const kcRes = await fetch(`${KC_URL}/admin/realms/${KC_REALM}/users/${id}`, {
@@ -150,6 +162,8 @@ router.put('/users/:id', async (req, res) => {
           fonction:     [fonction     || ''],
           telephone:    [telephone    || ''],
           direction_id: [direction_id || ''],
+          nif:          [nif          || ''],
+          ninu:         [ninu         || ''],
         },
       }),
     })
@@ -178,6 +192,11 @@ router.put('/users/:id', async (req, res) => {
 
 // DELETE /api/keycloak/users/:id
 router.delete('/users/:id', async (req, res) => {
+  // Empêcher l'auto-suppression — compare l'ID cible avec le sub du token JWT appelant
+  const callerSub = req.auth?.sub || req.headers['x-caller-sub']
+  if (callerSub && callerSub === req.params.id) {
+    return res.status(403).json({ message: 'Vous ne pouvez pas supprimer votre propre compte.' })
+  }
   try {
     const adminToken = await getAdminToken()
     const kcRes = await fetch(`${KC_URL}/admin/realms/${KC_REALM}/users/${req.params.id}`, {

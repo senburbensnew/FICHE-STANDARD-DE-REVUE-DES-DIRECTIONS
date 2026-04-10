@@ -19,6 +19,8 @@
     "jsonwebtoken": "^9.0.3",
     "jwks-rsa": "^4.0.1",
     "mysql2": "^3.11.3",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^8.0.5",
     "sequelize": "^6.37.5"
   },
   "devDependencies": {
