@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react'
-import WordCloud from 'react-d3-cloud'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   LineChart, Line, PieChart, Pie, Cell, Legend,
@@ -156,45 +155,29 @@ function MultiPie({ data, nameKey = 'statut' }) {
   )
 }
 
-// Word cloud — react-d3-cloud (d3-cloud spiral layout)
+// Tag cloud CSS — garantit l'affichage de TOUS les mots (react-d3-cloud abandonne les mots qui ne tiennent pas)
 function ContraintesCloud({ data }) {
-  const ref = useRef(null)
-  const [w, setW] = useState(480)
-
-  useEffect(() => {
-    if (!ref.current) return
-    const ro = new ResizeObserver(entries => {
-      const cw = Math.floor(entries[0].contentRect.width)
-      if (cw > 0) setW(cw)
-    })
-    ro.observe(ref.current)
-    return () => ro.disconnect()
-  }, [])
-
   if (!data?.length) return <Empty />
 
-  const vals   = data.map(d => d.total)
-  const maxVal = Math.max(...vals)
-  const minVal = Math.min(...vals)
-  const words  = data.map(d => ({ text: d.contrainte, value: d.total }))
+  const maxVal = Math.max(...data.map(d => d.total))
+  const minVal = Math.min(...data.map(d => d.total))
 
   return (
-    <div ref={ref} style={{ width: '100%', overflow: 'hidden' }}>
-      <WordCloud
-        data={words}
-        width={w}
-        height={310}
-        font="Inter, system-ui, sans-serif"
-        fontWeight="700"
-        fontSize={word => {
-          const t = maxVal === minVal ? 0.5 : (word.value - minVal) / (maxVal - minVal)
-          return Math.round(13 + t * 36) // 13 px → 49 px
-        }}
-        rotate={word => (word.text.length % 3 === 0 ? 90 : 0)}
-        padding={6}
-        spiral="archimedean"
-        fill={(word, i) => CLOUD_PALETTE[i % CLOUD_PALETTE.length]}
-      />
+    <div className="flex flex-wrap gap-x-4 gap-y-3 px-4 py-4 justify-center items-baseline">
+      {data.map((d, i) => {
+        const t    = maxVal === minVal ? 0.5 : Math.sqrt((d.total - minVal) / (maxVal - minVal))
+        const size = Math.round(12 + t * 30) // 12 px (rare) → 42 px (très fréquent)
+        const color = CLOUD_PALETTE[i % CLOUD_PALETTE.length]
+        return (
+          <span
+            key={d.contrainte}
+            title={`${d.contrainte} — cité ${d.total} fois`}
+            style={{ fontSize: size, color, fontWeight: 700, lineHeight: 1.3, cursor: 'default' }}
+          >
+            {d.contrainte}
+          </span>
+        )
+      })}
     </div>
   )
 }
