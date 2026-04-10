@@ -2,10 +2,8 @@ const jwt = require('jsonwebtoken')
 const jwksRsa = require('jwks-rsa')
 
 // Internal URL used to reach Keycloak from the backend container (for JWKS fetch)
-const KEYCLOAK_URL    = process.env.KEYCLOAK_URL    || 'http://keycloak:8180'
-const KEYCLOAK_REALM  = process.env.KEYCLOAK_REALM  || 'mef'
-// Public URL that appears in the token's `iss` claim (what the browser sees)
-const KEYCLOAK_ISSUER = process.env.KEYCLOAK_ISSUER || `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}`
+const KEYCLOAK_URL   = process.env.KEYCLOAK_URL   || 'http://keycloak:8180'
+const KEYCLOAK_REALM = process.env.KEYCLOAK_REALM || 'mef'
 
 const jwksClient = jwksRsa({
   jwksUri: `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}/protocol/openid-connect/certs`,
@@ -31,7 +29,6 @@ function requireAuth(req, res, next) {
 
   jwt.verify(token, getKey, {
     algorithms: ['RS256'],
-    issuer: KEYCLOAK_ISSUER,
   }, (err, decoded) => {
     if (err) {
       return res.status(401).json({ message: 'Token invalide ou expiré', detail: err.message })
